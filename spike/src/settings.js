@@ -10,9 +10,11 @@ export const FIXTURES = [
 
 export const DEFAULTS = {
   fixture: 'chopin',
-  dragStart: 'timing',
   swipeWindowMs: 220,
-  holdMs: 350,
+  holdMs: 300,
+  axisPx: 20,
+  scrubStepPx: 24,
+  turnPx: 30,
   swipeMinPx: 35,
   slopPx: 10,
   tapReachPx: 16,
@@ -50,7 +52,6 @@ export function bindSettingsDialog(dialog, s, onFixture) {
       const out = input.closest('label')?.querySelector('output');
       if (out) out.textContent = value;
     }
-    for (const label of form.querySelectorAll('label[data-for]')) label.hidden = label.dataset.for !== s.dragStart;
   };
 
   form.addEventListener('input', (e) => {

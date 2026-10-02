@@ -31,19 +31,24 @@
           <select name="fixture"></select>
         </label>
         <label>
-          Drag-select starts
-          <select name="dragStart">
-            <option value="timing">when a move lasts longer than the swipe window</option>
-            <option value="hold">after holding still first</option>
-          </select>
-        </label>
-        <label data-for="timing">
-          Swipe window <output></output> ms
+          Flick window (lift sooner for one step) <output></output> ms
           <input type="range" name="swipeWindowMs" min="100" max="500" step="10" />
         </label>
-        <label data-for="hold">
-          Hold before drag <output></output> ms
+        <label>
+          Hold still this long to arm a drag box <output></output> ms
           <input type="range" name="holdMs" min="150" max="800" step="25" />
+        </label>
+        <label>
+          Scrub direction (horizontal or vertical) judged over the first <output></output> px
+          <input type="range" name="axisPx" min="8" max="60" step="2" />
+        </label>
+        <label>
+          Scrub step <output></output> px of travel
+          <input type="range" name="scrubStepPx" min="8" max="80" step="2" />
+        </label>
+        <label>
+          Scrub turns onto the other axis after <output></output> px across
+          <input type="range" name="turnPx" min="10" max="120" step="5" />
         </label>
         <label>
           Minimum swipe length <output></output> px

@@ -73,6 +73,86 @@ function grow(dir) {
   return add.length ? `added ${add.length}` : 'nothing further to add on this page';
 }
 
+// A scrub walks along a path of states from where it started. States are built lazily and kept,
+// so moving the finger back returns to exactly the earlier state; a grown selection therefore never
+// shrinks below its size at the start of the scrub.
+let scrub = null;
+
+function walkState(prev, sign, axis) {
+  if (!prev.item) {
+    const it = sign > 0 ? score.items[0] : score.items.at(-1);
+    return it ? { item: it } : null;
+  }
+  const n = (axis === 'h' ? horizontal : vertical)(score, prev.item, sign);
+  return n ? { item: n } : null;
+}
+
+const GROW_DIR = { h: { 1: 'right', '-1': 'left' }, v: { 1: 'down', '-1': 'up' } };
+
+function growState(prev, sign, axis) {
+  const add = expansion(score, prev.ids, GROW_DIR[axis][sign]);
+  if (!add.length) return null;
+  const ids = new Set(prev.ids);
+  for (const it of add) ids.add(it.id);
+  return { ids, cursor: add.at(-1).id };
+}
+
+// A turn onto the other axis starts a new segment from the current state; `initial` is the state
+// before the gesture, restored on cancel, and `trail` the steps reached in earlier segments.
+function startScrub(axis) {
+  const grow = sel.fromDrag && sel.ids.size > 0;
+  const origin = grow
+    ? { ids: new Set(sel.ids), cursor: sel.cursor }
+    : { item: (sel.cursor && score.byId.get(sel.cursor)) || null };
+  const initial = scrub?.initial ?? { grow, state: origin };
+  const trail = scrub?.trail ?? [];
+  scrub = { axis, grow, paths: { 1: [origin], '-1': [origin] }, shown: 0, initial, trail };
+}
+
+function turnScrub(axis) {
+  if (scrub.shown) scrub.trail.push({ axis: scrub.axis, reached: scrub.shown });
+  startScrub(axis);
+}
+
+function showState(grow, state) {
+  if (grow) {
+    sel.ids = new Set(state.ids);
+    sel.fromDrag = true;
+    sel.cursor = state.cursor;
+    apply();
+  } else if (state.item) selectOnly(state.item);
+  else clearSelection();
+}
+
+/** Shows the state `steps` along the scrub path; returns the signed number of steps actually reached. */
+function showScrub(steps) {
+  const sign = steps < 0 ? -1 : 1;
+  const path = scrub.paths[sign];
+  while (path.length <= Math.abs(steps)) {
+    const next = (scrub.grow ? growState : walkState)(path.at(-1), sign, scrub.axis);
+    if (!next) break;
+    path.push(next);
+  }
+  const reached = Math.min(Math.abs(steps), path.length - 1);
+  showState(scrub.grow, path[reached]);
+  if (reached * sign !== scrub.shown) {
+    scrub.shown = reached * sign;
+    navigator.vibrate?.(4);
+  }
+  return reached * sign;
+}
+
+const segmentText = (axis, reached) => {
+  const arrows = axis === 'h' ? ['←', '→'] : ['↑', '↓'];
+  return reached ? `${reached < 0 ? arrows[0] : arrows[1]} ${Math.abs(reached)}` : '·';
+};
+
+function scrubHud(steps, reached, done) {
+  const parts = [...scrub.trail.map((t) => segmentText(t.axis, t.reached)), segmentText(scrub.axis, reached)];
+  const edge = reached !== steps ? ' — no further neighbour on this page' : '';
+  hud(`${scrub.grow ? 'grow' : 'walk'} ${parts.join(', ')}${edge}${done ? ' (done)' : ''}`);
+}
+
 const ARROWS = { left: '←', right: '→', up: '↑', down: '↓' };
 
 function handleDirection(dir, expand, detail) {
@@ -128,6 +208,23 @@ function wireGestures() {
     },
     onArmed() {
       hud('held — drag to select');
+    },
+    onScrubStart(axis) {
+      startScrub(axis);
+    },
+    onScrub(steps) {
+      scrubHud(steps, showScrub(steps), false);
+    },
+    onScrubEnd(steps) {
+      scrubHud(steps, showScrub(steps), true);
+      scrub = null;
+    },
+    onScrubTurn(axis) {
+      turnScrub(axis);
+    },
+    onScrubCancel() {
+      showState(scrub.initial.grow, scrub.initial.state);
+      scrub = null;
     },
     onIgnored(reason) {
       hud(`ignored: ${reason}`);
