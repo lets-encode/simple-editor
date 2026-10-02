@@ -1,0 +1,19 @@
+{
+  "name": "simple-editor-gesture-spike",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Throwaway spike: touch navigation and selection gestures over Verovio SVG",
+  "type": "module",
+  "license": "AGPL-3.0-only",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "verovio": "^6.3.0"
+  },
+  "devDependencies": {
+    "vite": "^8.3.2"
+  }
+}

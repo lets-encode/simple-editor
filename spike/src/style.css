@@ -1,0 +1,238 @@
+:root {
+  --bg: #fbfaf7;
+  --ink: #1d1d1f;
+  --muted: #6b6b70;
+  --bar: #eeebe4;
+  --bar-edge: #d9d4c9;
+  --button: #ffffff;
+  --button-active: #e2ddd2;
+  --layer-1: #d9480f;
+  --layer-2: #1971c2;
+  --layer-3: #2f9e44;
+  --layer-4: #9c36b5;
+  --box: #1c7ed6;
+  --box-fill: rgba(28, 126, 214, 0.08);
+  --bar-size: 76px;
+  color-scheme: light;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--bg);
+  color: var(--ink);
+  font: 14px/1.3 system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+#app {
+  display: grid;
+  height: 100dvh;
+  grid-template-columns: var(--bar-size) 1fr;
+  grid-template-areas: 'bar stage';
+}
+
+@media (orientation: portrait) {
+  #app {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr auto;
+    grid-template-areas: 'stage' 'bar';
+  }
+}
+
+/* The stage owns every single-finger gesture, so the browser must not scroll, zoom or select. */
+#stage {
+  grid-area: stage;
+  position: relative;
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+#score {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+#score svg {
+  display: block;
+}
+
+/* Selected elements take their layer's colour; unselected ones keep Verovio's default fill. */
+#score g.layer {
+  --layer: var(--layer-1);
+}
+#score g.layer[data-n='2'] {
+  --layer: var(--layer-2);
+}
+#score g.layer[data-n='3'] {
+  --layer: var(--layer-3);
+}
+#score g.layer[data-n='4'] {
+  --layer: var(--layer-4);
+}
+
+#score g.selected,
+#score g.selected * {
+  fill: var(--layer);
+  stroke: var(--layer);
+}
+
+#box {
+  position: absolute;
+  border: 1.5px dashed var(--box);
+  background: var(--box-fill);
+  pointer-events: none;
+}
+
+#stage.armed {
+  box-shadow: inset 0 0 0 3px var(--box);
+}
+
+#hud {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 6px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+#loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+#bar {
+  grid-area: bar;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 6px;
+  background: var(--bar);
+  border-right: 1px solid var(--bar-edge);
+  overflow: auto;
+}
+
+@media (orientation: portrait) {
+  #bar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+    border-right: 0;
+    border-top: 1px solid var(--bar-edge);
+  }
+
+  #bar .group:first-child {
+    flex-basis: 100%;
+  }
+
+  #bar .group:first-child button {
+    flex: 1;
+  }
+
+  #bar .spacer {
+    display: none;
+  }
+
+  #bar button {
+    min-width: 48px;
+  }
+}
+
+#bar .group {
+  display: flex;
+  flex-direction: inherit;
+  gap: 6px;
+}
+
+#bar .spacer {
+  flex: 1;
+}
+
+#bar button {
+  min-width: 60px;
+  min-height: 48px;
+  padding: 4px 6px;
+  border: 1px solid var(--bar-edge);
+  border-radius: 10px;
+  background: var(--button);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  touch-action: manipulation;
+}
+
+#bar button:active {
+  background: var(--button-active);
+}
+
+#bar button:disabled {
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+#bar .mode-label {
+  align-self: center;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+dialog {
+  border: 1px solid var(--bar-edge);
+  border-radius: 12px;
+  max-width: min(440px, calc(100vw - 32px));
+  padding: 16px;
+}
+
+dialog h2 {
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+
+dialog label {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+dialog label[hidden] {
+  display: none;
+}
+
+dialog input[type='range'],
+dialog select {
+  width: 100%;
+  font: inherit;
+}
+
+dialog menu {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+}
+
+dialog menu button {
+  min-height: 40px;
+  padding: 0 14px;
+  font: inherit;
+}

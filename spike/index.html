@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <title>Gesture spike</title>
+    <link rel="stylesheet" href="./src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <main id="stage">
+        <div id="score" aria-label="Score"></div>
+        <div id="box" hidden></div>
+        <div id="hud">
+          <span id="hud-gesture"></span>
+          <span id="hud-selection"></span>
+        </div>
+        <div id="loading">Loading Verovio…</div>
+      </main>
+      <nav id="bar" aria-label="Controls"></nav>
+    </div>
+
+    <dialog id="settings">
+      <form method="dialog">
+        <h2>Gesture settings</h2>
+        <label>
+          Score
+          <select name="fixture"></select>
+        </label>
+        <label>
+          Drag-select starts
+          <select name="dragStart">
+            <option value="timing">when a move lasts longer than the swipe window</option>
+            <option value="hold">after holding still first</option>
+          </select>
+        </label>
+        <label data-for="timing">
+          Swipe window <output></output> ms
+          <input type="range" name="swipeWindowMs" min="100" max="500" step="10" />
+        </label>
+        <label data-for="hold">
+          Hold before drag <output></output> ms
+          <input type="range" name="holdMs" min="150" max="800" step="25" />
+        </label>
+        <label>
+          Minimum swipe length <output></output> px
+          <input type="range" name="swipeMinPx" min="15" max="120" step="5" />
+        </label>
+        <label>
+          Movement ignored as a tap <output></output> px
+          <input type="range" name="slopPx" min="2" max="30" step="1" />
+        </label>
+        <label>
+          Tap reach around a notehead <output></output> px
+          <input type="range" name="tapReachPx" min="0" max="40" step="2" />
+        </label>
+        <menu>
+          <button type="button" value="reset" id="settings-reset">Defaults</button>
+          <button value="close">Close</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
