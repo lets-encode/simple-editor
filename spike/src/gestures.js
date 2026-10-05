@@ -1,5 +1,5 @@
-// Single-pointer gesture recogniser: tap, flick, scrub and drag-box.
-// A second simultaneous pointer cancels the gesture; two-finger gestures are reserved.
+// Gesture recogniser: one finger taps, flicks, scrubs and drags a box; two fingers flick and scrub.
+// A second finger cancels the one-finger gesture and starts a two-finger one; a third cancels that.
 //
 //   no movement:                    tap;
 //   still for `holdMs`, then moving: drag-box;
@@ -25,13 +25,22 @@
  * @property {() => void} onBoxCancel
  * @property {() => void} onArmed
  * @property {(reason: string) => void} onIgnored
- * @property {() => void} onMulti
+ * @property {(dir: 'left'|'right'|'up'|'down', info: {dist: number, ms: number, speed: number}) => void} onTwoSwipe
+ * @property {(axis: Axis) => void} onTwoScrubStart
+ * @property {(steps: number) => void} onTwoScrub   signed: negative is leftwards / upwards
+ * @property {(steps: number) => void} onTwoScrubEnd
+ * @property {(reason: string) => void} onTwoCancel
+ * @property {() => void} onTwoStart
  */
 
 /** @param {HTMLElement} el @param {() => object} getSettings @param {GestureHandlers} h */
 export function attachGestures(el, getSettings, h) {
   const down = new Set();
+  /** @type {Map<number, {x: number, y: number}>} */
+  const pts = new Map();
   let p = null;
+  let two = null;
+  let blocked = false;
 
   const stopTimers = () => {
     clearTimeout(p.timer);
@@ -96,12 +105,17 @@ export function attachGestures(el, getSettings, h) {
 
   el.addEventListener('pointerdown', (e) => {
     down.add(e.pointerId);
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (down.size > 1) {
       clear();
-      h.onMulti();
+      if (two && !two.dead) {
+        cancelTwo('a third finger');
+      } else if (!two && down.size === 2) {
+        startTwo(e);
+      }
       return;
     }
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (blocked || (e.pointerType === 'mouse' && e.button !== 0)) return;
     try {
       el.setPointerCapture(e.pointerId);
     } catch {
@@ -125,6 +139,8 @@ export function attachGestures(el, getSettings, h) {
   });
 
   el.addEventListener('pointermove', (e) => {
+    if (pts.has(e.pointerId)) pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (two) return moveTwo(e);
     if (!p || e.pointerId !== p.id) return;
     p.x = e.clientX;
     p.y = e.clientY;
@@ -153,8 +169,18 @@ export function attachGestures(el, getSettings, h) {
     }
   });
 
-  const end = (e) => {
+  const release = (e) => {
     down.delete(e.pointerId);
+    pts.delete(e.pointerId);
+    if (down.size === 0) blocked = false;
+  };
+
+  const end = (e) => {
+    if (two && two.ids.includes(e.pointerId)) {
+      endTwo(e);
+      return release(e);
+    }
+    release(e);
     if (!p || e.pointerId !== p.id) return;
     const { mode, moved, s } = p;
     const dx = p.x - p.x0;
@@ -179,7 +205,91 @@ export function attachGestures(el, getSettings, h) {
 
   el.addEventListener('pointerup', end);
   el.addEventListener('pointercancel', (e) => {
-    down.delete(e.pointerId);
+    if (two && two.ids.includes(e.pointerId)) cancelTwo('the browser cancelled a pointer');
+    release(e);
     if (p && e.pointerId === p.id) clear();
   });
+
+  // Two fingers.
+
+  const midpoint = () => {
+    const [a, b] = two.ids.map((id) => pts.get(id));
+    return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  };
+
+  function startTwo(e) {
+    blocked = true;
+    const s = getSettings();
+    two = { ids: [...down], t0: e.timeStamp, moved: false, axis: null, mode: 'pending', steps: 0, s };
+    const m = midpoint();
+    Object.assign(two, { x0: m.x, y0: m.y, x: m.x, y: m.y });
+    two.timer = setTimeout(() => {
+      if (two && !two.dead && two.axis && two.mode === 'pending') startTwoScrub();
+    }, s.swipeWindowMs);
+    h.onTwoStart();
+  }
+
+  function cancelTwo(reason) {
+    clearTimeout(two.timer);
+    two.dead = true;
+    h.onTwoCancel(reason);
+  }
+
+  const twoSteps = () => {
+    const travel = two.axis === 'h' ? two.x - two.x0 : two.y - two.y0;
+    return Math.trunc(travel / two.s.twoStepPx);
+  };
+
+  function updateTwoScrub() {
+    const steps = twoSteps();
+    if (steps !== two.steps) {
+      two.steps = steps;
+      h.onTwoScrub(steps);
+    }
+  }
+
+  function startTwoScrub() {
+    two.mode = 'scrub';
+    two.steps = 0;
+    h.onTwoScrubStart(two.axis);
+    updateTwoScrub();
+  }
+
+  function moveTwo(e) {
+    if (two.dead || !two.ids.includes(e.pointerId)) return;
+    const m = midpoint();
+    two.x = m.x;
+    two.y = m.y;
+    const dx = two.x - two.x0;
+    const dy = two.y - two.y0;
+    const dist = Math.hypot(dx, dy);
+    if (!two.moved) {
+      if (dist <= two.s.slopPx) return;
+      two.moved = true;
+    }
+    if (!two.axis) {
+      if (dist < Math.max(two.s.axisPx, two.s.slopPx)) return;
+      two.axis = Math.abs(dx) >= Math.abs(dy) ? 'h' : 'v';
+    }
+    if (two.mode === 'pending' && e.timeStamp - two.t0 >= two.s.swipeWindowMs) startTwoScrub();
+    else if (two.mode === 'scrub') updateTwoScrub();
+  }
+
+  function endTwo(e) {
+    const t = two;
+    two = null;
+    clearTimeout(t.timer);
+    if (t.dead) return;
+    if (t.mode === 'scrub') return h.onTwoScrubEnd(t.steps);
+    const dx = t.x - t.x0;
+    const dy = t.y - t.y0;
+    const dist = Math.hypot(dx, dy);
+    const ms = Math.max(Math.round(e.timeStamp - t.t0), 1);
+    if (!t.moved || dist < t.s.swipeMinPx) return h.onTwoCancel(`two-finger move too short (${Math.round(dist)} px)`);
+    const ax = Math.abs(dx);
+    const ay = Math.abs(dy);
+    if (Math.max(ax, ay) < 1.5 * Math.min(ax, ay)) return h.onTwoCancel('diagonal two-finger swipe');
+    const dir = ax > ay ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
+    h.onTwoSwipe(dir, { dist: Math.round(dist), ms, speed: dist / ms });
+  }
 }

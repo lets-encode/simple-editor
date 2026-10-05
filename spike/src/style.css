@@ -236,3 +236,64 @@ dialog menu button {
   padding: 0 14px;
   font: inherit;
 }
+
+#bar button.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  font-size: 16px;
+}
+
+#bar .note-icon {
+  width: 22px;
+  height: 30px;
+  flex: none;
+}
+
+#bar .mode-label .note-icon {
+  width: 20px;
+  height: 28px;
+  display: block;
+}
+
+/* The active mode stays visibly on while its level is closed. */
+#bar button[aria-pressed='true'] {
+  background: var(--button-active);
+  border-color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+
+dialog .stats {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--bar-edge);
+}
+
+dialog .stats output {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+dialog .stats button {
+  justify-self: start;
+  min-height: 36px;
+  padding: 0 12px;
+  font: inherit;
+}
+
+/* Ghost notes: an edit's new pitch or duration, drawn while the real reload is pending. */
+:root {
+  --ghost: #d6336c;
+}
+
+#score g.ghosted {
+  opacity: 0.25;
+}
+
+#score g.ghost-layer {
+  fill: var(--ghost);
+  stroke: var(--ghost);
+}

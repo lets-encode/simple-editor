@@ -1,6 +1,8 @@
 // Verovio rendering and an index of the navigable elements on the rendered page.
 
 // Mirrors mei-friend's navElsArray (app/static/lib/dom-utils.js).
+const MEI_NS = 'http://www.music-encoding.org/ns/mei';
+
 const NAV_CLASSES = ['note', 'rest', 'mRest', 'beatRpt', 'halfmRpt', 'mRpt', 'clef'];
 const NAV_SELECTOR = NAV_CLASSES.map((c) => `g.${c}`).join(',');
 
@@ -37,14 +39,98 @@ export class Score {
     this.byId = new Map();
     this.measures = [];
     this.systems = [];
+    /** @type {import('./mei.js').MeiDoc | null} */
+    this.doc = null;
+    /** @type {[string, string][]} each page's first and last measure id under the last full layout */
+    this.ranges = [];
+    /** true while the toolkit holds only the current page's measures (Verovio's select()) */
+    this.selected = false;
   }
 
-  load(mei) {
+  /** @param {import('./mei.js').MeiDoc} doc */
+  load(doc) {
+    this.doc = doc;
+    this.page = 1;
+    this.fullLayout(null, doc.serialize());
+  }
+
+  /** Lays out the whole file and records each page's measure range. */
+  fullLayout(keepId, mei) {
     this.tk.setOptions(this.options());
     this.tk.loadData(mei);
+    this.selected = false;
+    this.afterFullLayout(keepId);
+  }
+
+  afterFullLayout(keepId) {
     this.pageCount = this.tk.getPageCount();
-    this.page = 1;
-    this.readOnsets();
+    this.onsets = null;
+    const page = keepId ? this.tk.getPageWithElement(keepId) : 0;
+    this.page = page > 0 ? page : Math.min(Math.max(this.page, 1), this.pageCount);
+    this.ranges = [];
+    for (const id of this.doc.measureIds()) {
+      const p = this.tk.getPageWithElement(id);
+      if (p < 1) continue;
+      this.ranges[p - 1] ??= [id, id];
+      this.ranges[p - 1][1] = id;
+    }
+    /** @type {string[][]} per page, the first measure of each system, recorded when the page is rendered */
+    this.systemStarts = [];
+  }
+
+  /**
+   * The serialisation for loading only the current page, keeping the full layout's line breaks: an
+   * <sb> before each system start and before the next page's first measure (added to the DOM only
+   * while serialising), with the selection ending at that next measure.
+   *
+   * Verovio 6.3, with select() and encoded breaks, leaves out the selection's last system, the
+   * one after its last <sb>. Ending the selection at the next page's first measure, behind an
+   * <sb>, makes that dropped system the one we do not want. On the last page, an end id that does
+   * not exist makes the selection run to the end of the piece, and nothing is dropped.
+   */
+  pageSource() {
+    const range = this.ranges[this.page - 1];
+    const starts = this.systemStarts[this.page - 1];
+    if (!range || !starts) return null;
+    const next = this.ranges[this.page]?.[0] ?? null;
+    const added = [...starts.slice(1), ...(next ? [next] : [])].map((id) => {
+      const sb = this.doc.doc.createElementNS(MEI_NS, 'sb');
+      this.doc.get(id).before(sb);
+      return sb;
+    });
+    const mei = this.doc.serialize();
+    for (const sb of added) sb.remove();
+    return { mei, start: range[0], end: next ?? 'simple-editor-to-the-end' };
+  }
+
+  /** @returns {boolean} false if the passage did not come out as one page */
+  loadSelection(src) {
+    this.tk.setOptions({ ...this.options(), breaks: 'encoded' });
+    this.tk.select({ start: src.start, end: src.end });
+    this.tk.loadData(src.mei);
+    this.onsets = null;
+    this.selected = this.tk.getPageCount() === 1;
+    return this.selected;
+  }
+
+  /**
+   * Serialises the DOM, loads it and renders. With `scope` 'page' only the current page's measures
+   * are loaded, falling back to the whole file when that is not possible.
+   * @returns {{ser: number, load: number, render: number, scope: string}} milliseconds
+   */
+  reload(keepId, scope) {
+    const t0 = performance.now();
+    const src = scope === 'page' ? this.pageSource() : null;
+    const mei = src ? null : this.doc.serialize();
+    const t1 = performance.now();
+    let how = 'full';
+    if (src) how = this.loadSelection(src) ? 'page' : 'full: page overflowed';
+    else if (scope === 'page') how = 'full: no line breaks recorded for this page';
+    if (how !== 'page') this.fullLayout(keepId, mei ?? this.doc.serialize());
+    const t2 = performance.now();
+    this.render();
+    const ms = (a, b) => Math.round(b - a);
+    return { ser: ms(t0, t1), load: ms(t1, t2), render: ms(t2, performance.now()), scope: how };
   }
 
   /** First-occurrence onsets (in quarter notes) of notes, rests and measures, from Verovio's timemap. */
@@ -81,16 +167,22 @@ export class Score {
 
   /** Lays the score out again for the current stage size and scale, keeping `keepId` on screen. */
   relayout(keepId) {
-    this.tk.setOptions(this.options());
-    this.tk.redoLayout();
-    this.pageCount = this.tk.getPageCount();
-    const page = keepId ? this.tk.getPageWithElement(keepId) : 0;
-    this.page = page > 0 ? page : Math.min(this.page, this.pageCount);
+    if (this.selected) this.fullLayout(keepId, this.doc.serialize());
+    else {
+      this.tk.setOptions(this.options());
+      this.tk.redoLayout();
+      this.afterFullLayout(keepId);
+    }
     this.render();
   }
 
   render() {
-    this.container.innerHTML = this.tk.renderToSVG(this.page);
+    this.container.innerHTML = this.tk.renderToSVG(this.selected ? 1 : this.page);
+    if (!this.selected) {
+      this.systemStarts[this.page - 1] = [...this.container.querySelectorAll('g.system')]
+        .map((sy) => sy.querySelector('g.measure')?.id)
+        .filter(Boolean);
+    }
     this.index();
   }
 
@@ -98,6 +190,10 @@ export class Score {
     const next = Math.min(Math.max(this.page + delta, 1), this.pageCount);
     if (next === this.page) return false;
     this.page = next;
+    if (this.selected) {
+      const src = this.pageSource();
+      if (!src || !this.loadSelection(src)) this.fullLayout(null, this.doc.serialize());
+    }
     this.render();
     return true;
   }
@@ -135,15 +231,19 @@ export class Score {
       this.items.push(item);
       this.byId.set(item.id, item);
     }
-    this.assignTimes();
+    this.timed = false;
   }
 
   /**
    * Sets `t`, a page-local score time: measure index × 1000 + onset within the measure in quarters.
    * Measuring from the measure's own onset keeps `t` in page order even when repeats are expanded.
    * Elements the timemap omits (clefs) take the time of the next timed element in their lane.
+   * Computed on demand, since the timemap costs a full timing pass after every edit.
    */
   assignTimes() {
+    if (this.timed) return;
+    this.timed = true;
+    if (!this.onsets) this.readOnsets();
     for (const it of this.items) {
       const q = this.onsets.get(it.id);
       const mq = this.onsets.get(it.measure.id);
@@ -188,7 +288,11 @@ export class Score {
 
   describe(id) {
     const it = this.byId.get(id);
-    const attr = this.tk.getElementAttr(id) ?? {};
+    const el = this.doc?.get(id);
+    const accidChild = el && [...el.children].find((c) => c.localName === 'accid');
+    const attr = el
+      ? { pname: el.getAttribute('pname'), oct: el.getAttribute('oct'), accid: el.getAttribute('accid') ?? accidChild?.getAttribute('accid'), 'accid.ges': el.getAttribute('accid.ges') ?? accidChild?.getAttribute('accid.ges') }
+      : (this.tk.getElementAttr(id) ?? {});
     const kind = it?.el.classList[0] ?? 'element';
     let what = kind;
     if (kind === 'note' && attr.pname) {

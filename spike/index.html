@@ -62,6 +62,46 @@
           Tap reach around a notehead <output></output> px
           <input type="range" name="tapReachPx" min="0" max="40" step="2" />
         </label>
+        <label>
+          Two-finger scrub step <output></output> px of travel
+          <input type="range" name="twoStepPx" min="8" max="80" step="2" />
+        </label>
+        <label>
+          Two-finger flick up/down jumps an octave when at least <output></output> px long
+          <input type="range" name="octaveMinPx" min="40" max="300" step="10" />
+        </label>
+        <label>
+          … and at least <output></output> px/ms fast
+          <input type="range" name="octaveSpeed" min="0.3" max="4" step="0.1" />
+        </label>
+        <label>
+          Showing edits
+          <select name="renderMode">
+            <option value="auto">Auto: ghost notes while reloads are slow</option>
+            <option value="real">Always reload Verovio</option>
+            <option value="fake">Always ghost notes, reload on a pause</option>
+          </select>
+        </label>
+        <label>
+          Auto uses ghost notes when reloads take about <output></output> ms or more
+          <input type="range" name="autoFakeMs" min="40" max="600" step="10" />
+        </label>
+        <label>
+          Ghost notes: reload after a pause of <output></output> ms
+          <input type="range" name="fakeIdleMs" min="100" max="1500" step="50" />
+        </label>
+        <label>
+          Reload
+          <select name="reloadScope">
+            <option value="page">only the page on screen (Verovio select)</option>
+            <option value="full">the whole file</option>
+          </select>
+        </label>
+        <div class="stats">
+          <span>Edit reload times for this score</span>
+          <output id="reload-stats"></output>
+          <button type="button" id="reload-stats-reset">Reset times</button>
+        </div>
         <menu>
           <button type="button" value="reset" id="settings-reset">Defaults</button>
           <button value="close">Close</button>

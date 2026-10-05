@@ -1,8 +1,18 @@
 // The modal control bar. The top level lists modes; each mode level starts with Home.
-// Mode commands are placeholders in this spike.
+// Some mode is always active (Note by default) and stays highlighted on the top level, so its
+// two-finger gestures work without opening its level. Only Note's commands work in this spike.
+
+import { noteIcon } from './icons.js';
+
+export const NOTE_COMMANDS = [
+  { key: 'longer', arrow: '←', icon: { dur: 2 }, title: 'Longer duration' },
+  { key: 'shorter', arrow: '→', icon: { dur: 16 }, title: 'Shorter duration' },
+  { key: 'down', arrow: '↓', icon: { dur: 8, pos: 'bottom' }, title: 'Pitch down a step' },
+  { key: 'up', arrow: '↑', icon: { dur: 8, pos: 'top' }, title: 'Pitch up a step' },
+];
 
 const MODES = {
-  note: { label: 'Note', commands: ['Pitch', 'Duration', 'Accidental', 'Delete'] },
+  note: { label: 'Note', icon: { dur: 8 } },
   beam: { label: 'Beam', commands: ['Beam', 'Unbeam'] },
   slur: { label: 'Slur', commands: ['Add slur', 'Flip', 'Remove'] },
   clef: { label: 'Clef', commands: ['Treble', 'Bass', 'Alto'] },
@@ -10,16 +20,23 @@ const MODES = {
 
 /**
  * @param {HTMLElement} bar
- * @param {{ page: (d: number) => void, zoom: (d: number) => void, settings: () => void, status: () => string }} actions
+ * @param {{ page: (d: number) => void, zoom: (d: number) => void, settings: () => void, status: () => string,
+ *   note: (command: string) => void }} actions
  */
 export function createBar(bar, actions) {
-  let mode = null;
+  let active = 'note';
+  let open = false;
 
-  const button = (label, onClick, opts = {}) => {
+  const button = (content, onClick, opts = {}) => {
     const b = document.createElement('button');
     b.type = 'button';
-    b.textContent = label;
-    if (opts.title) b.title = opts.title;
+    b.append(...[content].flat());
+    if (opts.title) {
+      b.title = opts.title;
+      b.setAttribute('aria-label', opts.title);
+    }
+    if (opts.className) b.className = opts.className;
+    if (opts.pressed !== undefined) b.setAttribute('aria-pressed', String(opts.pressed));
     if (opts.disabled) b.disabled = true;
     else b.addEventListener('click', onClick);
     return b;
@@ -32,21 +49,35 @@ export function createBar(bar, actions) {
     return g;
   };
 
+  const modeFace = (m) => (m.icon ? noteIcon(m.icon) : m.label);
+
   const render = () => {
     bar.replaceChildren();
-    if (mode) {
+    if (open) {
+      const m = MODES[active];
       const label = document.createElement('span');
       label.className = 'mode-label';
-      label.textContent = MODES[mode].label;
+      label.setAttribute('aria-label', m.label);
+      label.append(modeFace(m));
+      const commands =
+        active === 'note'
+          ? NOTE_COMMANDS.map((c) =>
+              button([c.arrow, noteIcon(c.icon)], () => actions.note(c.key), { title: c.title, className: 'icon' }),
+            )
+          : m.commands.map((c) => button(c, null, { disabled: true, title: 'Not part of this spike' }));
+      bar.append(group(button('Home', () => ((open = false), render())), label, ...commands));
+    } else {
       bar.append(
         group(
-          button('Home', () => ((mode = null), render())),
-          label,
-          ...MODES[mode].commands.map((c) => button(c, null, { disabled: true, title: 'Not part of this spike' })),
+          ...Object.entries(MODES).map(([k, m]) =>
+            button(modeFace(m), () => ((active = k), (open = true), render()), {
+              title: m.label,
+              pressed: k === active,
+              className: m.icon ? 'icon' : '',
+            }),
+          ),
         ),
       );
-    } else {
-      bar.append(group(...Object.entries(MODES).map(([k, m]) => button(m.label, () => ((mode = k), render())))));
     }
     const spacer = document.createElement('div');
     spacer.className = 'spacer';
@@ -71,6 +102,9 @@ export function createBar(bar, actions) {
 
   render();
   return {
+    get mode() {
+      return active;
+    },
     refreshStatus() {
       const el = bar.querySelector('#page-label');
       if (el) el.textContent = actions.status();

@@ -125,6 +125,7 @@ const laneKey = (it) => `${it.staffN}/${it.layerN}`;
 export function expansion(score, ids, dir) {
   const sel = [...ids].map((id) => score.byId.get(id)).filter(Boolean);
   if (!sel.length) return [];
+  score.assignTimes();
   const lo = Math.min(...sel.map((it) => it.t));
   const hi = Math.max(...sel.map((it) => it.t));
   const fresh = (it) => !ids.has(it.id);

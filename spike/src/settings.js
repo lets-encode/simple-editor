@@ -18,6 +18,13 @@ export const DEFAULTS = {
   swipeMinPx: 35,
   slopPx: 10,
   tapReachPx: 16,
+  twoStepPx: 24,
+  octaveMinPx: 100,
+  octaveSpeed: 1.2,
+  renderMode: 'auto',
+  autoFakeMs: 150,
+  fakeIdleMs: 350,
+  reloadScope: 'page',
 };
 
 const KEY = 'simple-editor-spike-settings';
