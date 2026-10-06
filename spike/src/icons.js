@@ -5,7 +5,7 @@ const LINES = [18, 26];
 const POS = { between: 22, bottom: 26, top: 18 };
 
 /**
- * @param {{dur: 2|8|16, pos?: 'between'|'bottom'|'top'}} spec
+ * @param {{dur: 2|4|8|16, pos?: 'between'|'bottom'|'top'}} spec
  * @returns {SVGSVGElement}
  */
 export function noteIcon({ dur, pos = 'between' }) {

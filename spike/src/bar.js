@@ -5,7 +5,7 @@
 import { noteIcon } from './icons.js';
 
 export const NOTE_COMMANDS = [
-  { key: 'longer', arrow: '←', icon: { dur: 2 }, title: 'Longer duration' },
+  { key: 'longer', arrow: '←', icon: { dur: 4 }, title: 'Longer duration' },
   { key: 'shorter', arrow: '→', icon: { dur: 16 }, title: 'Shorter duration' },
   { key: 'down', arrow: '↓', icon: { dur: 8, pos: 'bottom' }, title: 'Pitch down a step' },
   { key: 'up', arrow: '↑', icon: { dur: 8, pos: 'top' }, title: 'Pitch up a step' },
