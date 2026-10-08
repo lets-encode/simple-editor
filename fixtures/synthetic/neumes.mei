@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="https://music-encoding.org/schema/5.1/mei-Neumes.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<mei xmlns="http://www.music-encoding.org/ns/mei" meiversion="5.1">
+  <meiHead>
+    <fileDesc>
+      <titleStmt>
+        <title>Minimal neume fixture</title>
+      </titleStmt>
+      <pubStmt>
+        <respStmt>
+          <corpName>simple-editor test fixtures</corpName>
+        </respStmt>
+      </pubStmt>
+    </fileDesc>
+  </meiHead>
+  <music>
+    <body>
+      <mdiv>
+        <score>
+          <scoreDef>
+            <staffGrp>
+              <staffDef n="1" lines="4" notationtype="neume" clef.shape="C" clef.line="3"/>
+            </staffGrp>
+          </scoreDef>
+          <section>
+            <staff n="1">
+              <layer n="1">
+                <syllable>
+                  <syl>Al</syl>
+                  <neume>
+                    <nc pname="g" oct="3"/>
+                    <nc pname="a" oct="3"/>
+                  </neume>
+                </syllable>
+                <syllable>
+                  <syl>le</syl>
+                  <neume>
+                    <nc pname="c" oct="4"/>
+                  </neume>
+                </syllable>
+              </layer>
+            </staff>
+          </section>
+        </score>
+      </mdiv>
+    </body>
+  </music>
+</mei>
