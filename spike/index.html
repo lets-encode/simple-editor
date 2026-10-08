@@ -11,15 +11,28 @@
   </head>
   <body>
     <div id="app">
-      <main id="stage">
-        <div id="score" aria-label="Score"></div>
-        <div id="box" hidden></div>
-        <div id="hud">
-          <span id="hud-gesture"></span>
-          <span id="hud-selection"></span>
-        </div>
-        <div id="loading">Loading Verovio…</div>
-      </main>
+      <div id="main">
+        <main id="stage">
+          <div id="score" aria-label="Score"></div>
+          <div id="box" hidden></div>
+          <div id="hud">
+            <span id="hud-gesture"></span>
+            <span id="hud-selection"></span>
+          </div>
+          <div id="loading">Loading Verovio…</div>
+        </main>
+        <!-- The facsimile sheet slides over the score from the top; see src/facsimile.js. -->
+        <section id="sheet" aria-label="Source facsimile" hidden>
+          <div id="fac-view">
+            <div id="fac-content">
+              <img id="fac-img" alt="" draggable="false" />
+              <div id="fac-zones"></div>
+            </div>
+            <button type="button" id="fac-sync" hidden>Sync</button>
+          </div>
+          <div id="fac-handle"><span class="grip"></span><span class="label">Source</span></div>
+        </section>
+      </div>
       <nav id="bar" aria-label="Controls"></nav>
     </div>
 
@@ -73,6 +86,21 @@
         <label>
           … and at least <output></output> px/ms fast
           <input type="range" name="octaveSpeed" min="0.3" max="4" step="0.1" />
+        </label>
+        <label>
+          Facsimile strip: <output></output> % of the score area
+          <input type="range" name="stripPct" min="15" max="70" step="5" />
+        </label>
+        <label>
+          Facsimile fits
+          <select name="facFit">
+            <option value="screen">the measures on screen (never larger than the score)</option>
+            <option value="selection">the selected measure, as tall as the score's system</option>
+          </select>
+        </label>
+        <label>
+          Hold the facsimile button <output></output> ms to flip to full
+          <input type="range" name="flipHoldMs" min="100" max="600" step="25" />
         </label>
         <label>
           Showing edits

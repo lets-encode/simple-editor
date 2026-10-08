@@ -2,14 +2,19 @@
 
 import chopin from '../fixtures/Chopin_Mazurka_Op6_No1.mei?url';
 import beethoven from '../fixtures/Beethoven_WoOAnh5_Nr1_1-Breitkopf.mei?url';
+// From the repo's fixtures/ (served through Vite's fs.allow); facsimile images resolve against these URLs.
+import baumann from '../../fixtures/demo/Baumann-Ludwig_Mondnacht-am-Meer.mei?url';
+import esperoFacs from '../../fixtures/le/la-espero/piece-01/score@1dd5630.mei?url';
 
 export const FIXTURES = [
   { key: 'chopin', label: 'Chopin, Mazurka op. 6 no. 1', url: chopin },
   { key: 'beethoven', label: 'Beethoven, Sonatina in G, WoO Anh. 5 no. 1', url: beethoven },
+  { key: 'baumann', label: 'Baumann, Mondnacht am Meer (facsimile)', url: baumann },
+  { key: 'espero-facs', label: 'La Espero, encoded stage 1dd5630 (facsimile)', url: esperoFacs },
 ];
 
 export const DEFAULTS = {
-  fixture: 'chopin',
+  fixture: 'baumann',
   swipeWindowMs: 220,
   holdMs: 300,
   axisPx: 20,
@@ -25,6 +30,9 @@ export const DEFAULTS = {
   autoFakeMs: 150,
   fakeIdleMs: 350,
   reloadScope: 'page',
+  stripPct: 40,
+  facFit: 'screen',
+  flipHoldMs: 250,
 };
 
 const KEY = 'simple-editor-spike-settings';

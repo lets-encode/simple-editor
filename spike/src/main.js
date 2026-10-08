@@ -8,6 +8,7 @@ import { FIXTURES, loadSettings, bindSettingsDialog } from './settings.js';
 import { MeiDoc } from './mei.js';
 import { stepPitch, setDurationSteps, durationCarrier, snapshot, restore } from './edit.js';
 import { Ghosts, harvestGlyphs, baseOf } from './ghost.js';
+import { Facsimile, measureFrame } from './facsimile.js';
 
 const stage = document.getElementById('stage');
 const scoreEl = document.getElementById('score');
@@ -28,6 +29,8 @@ let bar;
 let ghosts;
 /** @type {MeiDoc} */
 let doc;
+/** @type {Facsimile} */
+let fac;
 
 let hudText = '';
 let timing = '';
@@ -75,6 +78,61 @@ function apply(ids = sel.ids) {
   if (ids.size === 0) hudSelection.textContent = 'nothing selected';
   else if (ids.size === 1) hudSelection.textContent = score.describe([...ids][0]);
   else hudSelection.textContent = `${ids.size} selected${sel.fromDrag ? ' (drag selection)' : ''}`;
+  followSelection();
+}
+
+/** Points the facsimile at the measures on screen and the selection's focus measure. */
+function followSelection() {
+  if (!fac?.available) return;
+  const id = sel.cursor ?? [...sel.ids][0];
+  const selected = new Set([...sel.ids].map((i) => score.byId.get(i)?.measure.id).filter(Boolean));
+  fac.follow({ focus: (id && score.byId.get(id)?.measure) || score.measures[0], onScreen: score.measures, selected });
+}
+
+/**
+ * A tap on a zone in the facsimile: turns to the measure's page if need be, and selects the element
+ * of that measure nearest the corresponding point of the rendered measure.
+ */
+function selectFromFacsimile(hit) {
+  if (!hit) return hud('facsimile tap outside any measure zone');
+  flush();
+  const ids = doc.measureIds();
+  const pageOf = (mid) => {
+    const i = ids.indexOf(mid);
+    return score.ranges.findIndex(([a, b]) => ids.indexOf(a) <= i && i <= ids.indexOf(b)) + 1;
+  };
+  // Of measures sharing the zone, the first on this page, else the first.
+  const mid = hit.measureIds.find((m) => pageOf(m) === score.page) ?? hit.measureIds[0];
+  const page = pageOf(mid);
+  if (page > 0 && page !== score.page) {
+    score.turnPage(page - score.page);
+    bar.refreshStatus();
+  }
+  const m = score.measures.find((x) => x.id === mid);
+  const n = doc.get(mid)?.getAttribute('n') ?? '?';
+  const items = m ? score.items.filter((it) => it.measure === m && !it.el.classList.contains('clef')) : [];
+  const f = m && measureFrame(m);
+  if (!items.length || !f) {
+    clearSelection();
+    return hud(`facsimile tap — bar ${n}${m ? ', nothing to select in it' : ' is not on screen'}`);
+  }
+  const px = f.left + hit.fx * f.width;
+  const py = f.top + hit.fy * f.height;
+  // Height decides the staff; across counts for less, since source and render are spaced differently.
+  const best = items.reduce((a, b) => (Math.hypot((b.cx - px) / 3, b.cy - py) < Math.hypot((a.cx - px) / 3, a.cy - py) ? b : a));
+  selectOnly(best);
+  pulse(best);
+  hud(`facsimile tap — bar ${n}`);
+}
+
+/** Briefly enlarges an item's notehead (or glyph), so a tap elsewhere visibly lands on it. */
+function pulse(it) {
+  const g = it.el.querySelector('g.notehead') ?? it.el;
+  g.classList.remove('pulse');
+  // Restarts the animation when the same element is pulsed twice in a row.
+  void g.getBoundingClientRect();
+  g.classList.add('pulse');
+  setTimeout(() => g.classList.remove('pulse'), 600);
 }
 
 function selectOnly(it) {
@@ -571,6 +629,9 @@ document.getElementById('reload-stats-reset').addEventListener('click', () => {
 async function loadFixture(key) {
   const f = FIXTURES.find((x) => x.key === key) ?? FIXTURES[0];
   doc = new MeiDoc(await (await fetch(f.url)).text());
+  // Before the first layout, so the score is laid out for the stage the closed sheet leaves.
+  fac.load(doc, f.url);
+  bar.refresh();
   reloads.length = 0;
   pending.clear();
   faking = false;
@@ -589,8 +650,16 @@ async function main() {
   harvestGlyphs(tk);
   score = new Score(tk, scoreEl);
   ghosts = new Ghosts(scoreEl);
+  fac = new Facsimile({
+    main: document.getElementById('main'),
+    stage,
+    sheet: document.getElementById('sheet'),
+    settings,
+    onChange: (text) => hud(text),
+    onTap: selectFromFacsimile,
+  });
   // Exposed for inspection from the browser console.
-  window.spike = { score, sel, settings, get doc() { return doc; } };
+  window.spike = { score, sel, settings, fac, get doc() { return doc; } };
   bar = createBar(document.getElementById('bar'), {
     page: turnPage,
     zoom,
@@ -600,6 +669,7 @@ async function main() {
     },
     status: () => (score.pageCount ? `${score.page}/${score.pageCount}` : ''),
     note: noteCommand,
+    facsimile: { available: () => !!fac?.available, down: () => fac.buttonDown(), up: (c) => fac.buttonUp(c) },
   });
   bindSettingsDialog(settingsDialog, settings, loadFixture);
   await loadFixture(settings.fixture);
