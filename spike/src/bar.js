@@ -21,7 +21,7 @@ const MODES = {
 
 /**
  * @param {HTMLElement} bar
- * @param {{ page: (d: number) => void, zoom: (d: number) => void, settings: () => void, status: () => string,
+ * @param {{ page: (d: number) => void, zoom: (d: number) => void, settings: () => void, pages: () => {page: number, count: number}, goto: (page: number) => void,
  *   note: (command: string) => void, pressed: (command: string) => boolean }} actions
  */
 export function createBar(bar, actions) {
@@ -50,6 +50,13 @@ export function createBar(bar, actions) {
     return g;
   };
 
+  // A group drawn with a hairline frame, like a fieldset, around controls that belong together.
+  const framed = (...children) => {
+    const g = group(...children);
+    g.classList.add('framed');
+    return g;
+  };
+
   const modeFace = (m) => (m.icon ? noteIcon(m.icon) : m.label);
 
   const render = () => {
@@ -74,7 +81,7 @@ export function createBar(bar, actions) {
               return b;
             })
           : m.commands.map((c) => button(c, null, { disabled: true, title: 'Not part of this spike' }));
-      bar.append(group(button('Home', () => ((open = false), render())), label, ...commands));
+      bar.append(group(button('Home', () => ((open = false), render())), framed(label, ...commands)));
     } else {
       bar.append(
         group(
@@ -90,23 +97,43 @@ export function createBar(bar, actions) {
     }
     const spacer = document.createElement('div');
     spacer.className = 'spacer';
-    const pageLabel = document.createElement('span');
-    pageLabel.className = 'mode-label';
-    pageLabel.id = 'page-label';
-    pageLabel.textContent = actions.status();
+    // The page number opens a list of the pages, to jump straight to one.
+    const pageSelect = document.createElement('select');
+    pageSelect.id = 'page-select';
+    pageSelect.title = 'Go to page';
+    pageSelect.setAttribute('aria-label', 'Go to page');
+    pageSelect.addEventListener('change', () => actions.goto(Number(pageSelect.value)));
+    const magnifier = document.createElement('span');
+    magnifier.className = 'magnifier';
+    magnifier.setAttribute('aria-hidden', 'true');
+    magnifier.innerHTML =
+      '<svg viewBox="0 0 16 16"><circle cx="6.5" cy="6.5" r="4.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10 10 L14.5 14.5" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
     bar.append(
       spacer,
-      group(
+      framed(
         button('◀', () => actions.page(-1), { title: 'Previous page' }),
-        pageLabel,
+        pageSelect,
         button('▶', () => actions.page(1), { title: 'Next page' }),
       ),
-      group(
+      framed(
         button('−', () => actions.zoom(-1), { title: 'Smaller' }),
+        magnifier,
         button('+', () => actions.zoom(1), { title: 'Larger' }),
       ),
       group(button('⚙', () => actions.settings(), { title: 'Gesture settings' })),
     );
+    refreshPages();
+  };
+
+  /** Fills the page list for the current page count and shows the current page. */
+  const refreshPages = () => {
+    const el = bar.querySelector('#page-select');
+    if (!el) return;
+    const { page, count } = actions.pages();
+    if (el.options.length !== count) {
+      el.replaceChildren(...Array.from({ length: count }, (_, i) => new Option(`${i + 1}/${count}`, String(i + 1))));
+    }
+    el.value = String(page);
   };
 
   render();
@@ -115,8 +142,7 @@ export function createBar(bar, actions) {
       return active;
     },
     refreshStatus() {
-      const el = bar.querySelector('#page-label');
-      if (el) el.textContent = actions.status();
+      refreshPages();
     },
   };
 }

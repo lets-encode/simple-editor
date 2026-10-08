@@ -592,3 +592,66 @@ dialog .stats button {
   inset: 0;
   pointer-events: none;
 }
+
+/* The page number: a list of the pages, styled as a quiet label with a hint that it opens. */
+#page-select {
+  align-self: center;
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  border-bottom: 1px dashed var(--muted);
+  border-radius: 0;
+  padding: 2px 1px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  text-align: center;
+}
+
+/* Says what − and + do; not a button. */
+#bar .magnifier {
+  align-self: center;
+  display: flex;
+  color: var(--muted);
+}
+
+#bar .magnifier svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Controls that belong together (a mode's commands, paging, zoom) sit in a hairline frame. */
+#bar .group.framed {
+  padding: 2px;
+  border: 1px solid #b9b1a2;
+  border-radius: 12px;
+}
+
+@media (min-resolution: 2dppx) {
+  #bar .group.framed {
+    border-width: 0.5px;
+  }
+}
+
+@media (orientation: portrait) {
+  #bar .group:first-child .group.framed {
+    flex: 1;
+  }
+
+  #bar .group.framed {
+    gap: 4px;
+  }
+}
+
+/* Buttons outside a frame get the frame's padding and border as margin, so every button in the bar
+   has the same size (otherwise a framed row stretches them taller). */
+#bar .group:not(.framed) > button {
+  margin: 3px;
+}
+
+@media (min-resolution: 2dppx) {
+  #bar .group:not(.framed) > button {
+    margin: 2.5px;
+  }
+}

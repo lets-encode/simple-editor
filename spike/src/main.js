@@ -868,7 +868,8 @@ async function main() {
       showStats();
       settingsDialog.showModal();
     },
-    status: () => (score.pageCount ? `${score.page}/${score.pageCount}` : ''),
+    pages: () => ({ page: score?.page ?? 1, count: score?.pageCount ?? 0 }),
+    goto: (p) => turnPage(p - score.page),
     note: noteCommand,
     pressed: (key) => key === 'insert' && entry.open,
   });

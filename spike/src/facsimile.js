@@ -49,8 +49,12 @@ export class Facsimile {
     this.syncBtn.addEventListener('pointerdown', (e) => e.stopPropagation());
     this.syncBtn.addEventListener('click', () => this.sync());
     new ResizeObserver(() => this.available && this.settle(this.rest, false)).observe(main);
-    // Keeps the zone centred while the sheet is dragged or animates, frame by frame.
-    new ResizeObserver(() => this.linked && this.centre(false)).observe(this.view);
+    // Keeps the zone centred while the sheet is dragged or animates, frame by frame; while the
+    // sheet animates to a resting height, the view animates along.
+    new ResizeObserver(() => {
+      const settling = this.sheet.classList.contains('animate') && !this.sheet.classList.contains('dragging');
+      if (this.linked) this.centre(settling);
+    }).observe(this.view);
   }
 
   /** @param {import('./mei.js').MeiDoc} doc @param {string} url the MEI file's URL, for relative image paths */
@@ -87,10 +91,13 @@ export class Facsimile {
       this.main.style.setProperty('--stage-top', '0px');
       return;
     }
+    const was = this.rest;
     this.rest = rest;
     this.sheet.dataset.rest = rest;
     const h = this.heights()[rest];
     this.setHeight(h, animate);
+    // The fit changes only between full and the other heights.
+    if (this.linked && (was === 'full') !== (rest === 'full')) this.centre(animate);
     clearTimeout(this.settleTimer);
     if (rest === 'full') return;
     const shrink = () => {
@@ -257,7 +264,11 @@ export class Facsimile {
     if (!tg || !vw || !vh) return;
     const f = tg.frame;
     let s = tg.like ?? this.t.s;
-    if (this.settings.facFit === 'screen') s = Math.min(s, (vw - 12) / f.w, (vh - 8) / f.h);
+    // The fit is for a resting height, never the height mid-drag: the strip's, or the full sheet's
+    // once settled there. So opening the sheet does not zoom, which would suggest it could rest
+    // anywhere; settling at full (or back) gives a slight nudge.
+    const fitH = (this.rest === 'full' ? this.heights().full : this.heights().strip) - HANDLE_PX;
+    if (this.settings.facFit === 'screen') s = Math.min(s, (vw - 12) / f.w, (fitH - 8) / f.h);
     this.setTransform({ s, x: vw / 2 - (f.x + f.w / 2) * s, y: vh / 2 - (f.y + f.h / 2) * s }, animate);
   }
 
