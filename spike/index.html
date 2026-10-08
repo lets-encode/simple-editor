@@ -12,15 +12,23 @@
   <body>
     <div id="app">
       <div id="main">
-        <main id="stage">
-          <div id="score" aria-label="Score"></div>
-          <div id="box" hidden></div>
-          <div id="hud">
-            <span id="hud-gesture"></span>
-            <span id="hud-selection"></span>
-          </div>
-          <div id="loading">Loading Verovio…</div>
-        </main>
+        <!-- The score and the entry pane share one gesture recogniser, so two fingers may span both. -->
+        <div id="work">
+          <main id="stage">
+            <div id="score" aria-label="Score"></div>
+            <div id="box" hidden></div>
+            <div id="caret" hidden></div>
+            <div id="slots"></div>
+            <div id="hud">
+              <span id="hud-gesture"></span>
+              <span id="hud-selection"></span>
+            </div>
+            <div id="loading">Loading Verovio…</div>
+          </main>
+          <!-- The entry pane beside the score, below the sheet; see src/pane.js. -->
+          <div id="pane" aria-label="Note entry" hidden></div>
+          <div id="pane-label" hidden></div>
+        </div>
         <!-- The facsimile sheet slides over the score from the top; see src/facsimile.js. -->
         <section id="sheet" aria-label="Source facsimile" hidden>
           <div id="fac-view">
@@ -97,6 +105,21 @@
             <option value="screen">the measures on screen (never larger than the score)</option>
             <option value="selection">the selected measure, as tall as the score's system</option>
           </select>
+        </label>
+        <label>
+          Entry pane on the
+          <select name="paneSide">
+            <option value="right">right</option>
+            <option value="left">left</option>
+          </select>
+        </label>
+        <label>
+          Entry pane: <output></output> px per staff position (line or space)
+          <input type="range" name="paneStepPx" min="10" max="30" step="1" />
+        </label>
+        <label>
+          Entry pane: show the ghost after <output></output> ms (a second finger sooner makes it two-finger)
+          <input type="range" name="paneGhostDelayMs" min="0" max="200" step="10" />
         </label>
         <label>
           Showing edits

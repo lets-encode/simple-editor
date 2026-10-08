@@ -5,12 +5,14 @@ import beethoven from '../fixtures/Beethoven_WoOAnh5_Nr1_1-Breitkopf.mei?url';
 // From the repo's fixtures/ (served through Vite's fs.allow); facsimile images resolve against these URLs.
 import baumann from '../../fixtures/demo/Baumann-Ludwig_Mondnacht-am-Meer.mei?url';
 import esperoFacs from '../../fixtures/le/la-espero/piece-01/score@1dd5630.mei?url';
+import esperoSetup from '../../fixtures/le/la-espero/piece-01/score@ec3585b.mei?url';
 
 export const FIXTURES = [
   { key: 'chopin', label: 'Chopin, Mazurka op. 6 no. 1', url: chopin },
   { key: 'beethoven', label: 'Beethoven, Sonatina in G, WoO Anh. 5 no. 1', url: beethoven },
   { key: 'baumann', label: 'Baumann, Mondnacht am Meer (facsimile)', url: baumann },
   { key: 'espero-facs', label: 'La Espero, encoded stage 1dd5630 (facsimile)', url: esperoFacs },
+  { key: 'espero-setup', label: 'La Espero, score-setup stage ec3585b (empty bars, facsimile)', url: esperoSetup },
 ];
 
 export const DEFAULTS = {
@@ -32,6 +34,9 @@ export const DEFAULTS = {
   reloadScope: 'page',
   stripPct: 40,
   facFit: 'screen',
+  paneSide: 'right',
+  paneStepPx: 16,
+  paneGhostDelayMs: 70,
 };
 
 const KEY = 'simple-editor-spike-settings';
@@ -52,8 +57,8 @@ function save(s) {
   }
 }
 
-/** Binds the settings dialog to `s`; calls `onFixture` when the score choice changes. */
-export function bindSettingsDialog(dialog, s, onFixture) {
+/** Binds the settings dialog to `s`; calls `onFixture` when the score choice changes, `onChange` for anything else. */
+export function bindSettingsDialog(dialog, s, onFixture, onChange = () => {}) {
   const form = dialog.querySelector('form');
   const fixture = form.elements.fixture;
   for (const f of FIXTURES) fixture.add(new Option(f.label, f.key));
@@ -76,6 +81,7 @@ export function bindSettingsDialog(dialog, s, onFixture) {
     save(s);
     sync();
     if (name === 'fixture' && prev !== value) onFixture(value);
+    else if (name !== 'fixture') onChange(name);
   });
 
   dialog.querySelector('#settings-reset').addEventListener('click', () => {

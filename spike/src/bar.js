@@ -5,6 +5,7 @@
 import { noteIcon } from './icons.js';
 
 export const NOTE_COMMANDS = [
+  { key: 'insert', arrow: '', icon: { dur: 4, sparkle: true }, title: 'Insert notes (entry pane)', toggle: true },
   { key: 'longer', arrow: '←', icon: { dur: 4 }, title: 'Longer duration' },
   { key: 'shorter', arrow: '→', icon: { dur: 16 }, title: 'Shorter duration' },
   { key: 'down', arrow: '↓', icon: { dur: 8, pos: 'bottom' }, title: 'Pitch down a step' },
@@ -21,7 +22,7 @@ const MODES = {
 /**
  * @param {HTMLElement} bar
  * @param {{ page: (d: number) => void, zoom: (d: number) => void, settings: () => void, status: () => string,
- *   note: (command: string) => void }} actions
+ *   note: (command: string) => void, pressed: (command: string) => boolean }} actions
  */
 export function createBar(bar, actions) {
   let active = 'note';
@@ -61,9 +62,17 @@ export function createBar(bar, actions) {
       label.append(modeFace(m));
       const commands =
         active === 'note'
-          ? NOTE_COMMANDS.map((c) =>
-              button([c.arrow, noteIcon(c.icon)], () => actions.note(c.key), { title: c.title, className: 'icon' }),
-            )
+          ? NOTE_COMMANDS.map((c) => {
+              const b = button(
+                [c.arrow, noteIcon(c.icon)],
+                () => {
+                  actions.note(c.key);
+                  if (c.toggle) b.setAttribute('aria-pressed', String(actions.pressed(c.key)));
+                },
+                { title: c.title, className: 'icon', pressed: c.toggle ? actions.pressed(c.key) : undefined },
+              );
+              return b;
+            })
           : m.commands.map((c) => button(c, null, { disabled: true, title: 'Not part of this spike' }));
       bar.append(group(button('Home', () => ((open = false), render())), label, ...commands));
     } else {

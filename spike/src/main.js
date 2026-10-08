@@ -1,14 +1,16 @@
 import createVerovioModule from 'verovio/wasm';
 import { VerovioToolkit } from 'verovio/esm';
-import { Score, SCALES } from './score.js';
+import { Score, SCALES, slotRect } from './score.js';
 import { horizontal, vertical, expansion } from './nav.js';
 import { attachGestures } from './gestures.js';
 import { createBar } from './bar.js';
 import { FIXTURES, loadSettings, bindSettingsDialog } from './settings.js';
 import { MeiDoc } from './mei.js';
 import { stepPitch, setDurationSteps, durationCarrier, snapshot, restore } from './edit.js';
-import { Ghosts, harvestGlyphs, baseOf } from './ghost.js';
+import { Ghosts, harvestGlyphs, baseOf, staffLines } from './ghost.js';
 import { Facsimile, measureFrame } from './facsimile.js';
+import { EntryPane } from './pane.js';
+import { clefAt, pitchName, insertNote, durationAfter } from './entry.js';
 
 const stage = document.getElementById('stage');
 const scoreEl = document.getElementById('score');
@@ -16,12 +18,18 @@ const boxEl = document.getElementById('box');
 const hudGesture = document.getElementById('hud-gesture');
 const hudSelection = document.getElementById('hud-selection');
 const settingsDialog = document.getElementById('settings');
+const mainEl = document.getElementById('main');
+const paneEl = document.getElementById('pane');
+const caretEl = document.getElementById('caret');
+const slotsEl = document.getElementById('slots');
 
 const settings = loadSettings();
 
 // Selection state. `fromDrag` marks a selection made by drag-box (or Shift+arrow), which swipes
-// grow instead of replace. `cursor` is the element single-step navigation starts from.
-const sel = { ids: new Set(), fromDrag: false, cursor: null };
+// grow instead of replace. `cursor` is the element single-step navigation starts from. `before`
+// marks the position before a bar's first element in a lane (note entry): nothing is selected,
+// and the caret stands before `cursor`.
+const sel = { ids: new Set(), fromDrag: false, cursor: null, before: false };
 
 let score;
 let bar;
@@ -31,6 +39,11 @@ let ghosts;
 let doc;
 /** @type {Facsimile} */
 let fac;
+/** @type {EntryPane} */
+let pane;
+// Note entry: whether the pane is open, the note just entered (for moving on to the next bar
+// only within a run of entry, N5), and the duration of the last note entered.
+const entry = { open: false, run: null, last: null };
 
 let hudText = '';
 let timing = '';
@@ -75,11 +88,135 @@ function hud(text, edit = false) {
 function apply(ids = sel.ids) {
   for (const el of scoreEl.querySelectorAll('g.selected')) el.classList.remove('selected');
   for (const id of ids) score.byId.get(id)?.el.classList.add('selected');
-  if (ids.size === 0) hudSelection.textContent = 'nothing selected';
+  if (sel.before && sel.cursor) hudSelection.textContent = `before ${score.describe(sel.cursor)}`;
+  else if (ids.size === 0) hudSelection.textContent = 'nothing selected';
   else if (ids.size === 1) hudSelection.textContent = score.describe([...ids][0]);
   else hudSelection.textContent = `${ids.size} selected${sel.fromDrag ? ' (drag selection)' : ''}`;
+  drawSlots(ids);
   followSelection();
+  updateCaret();
 }
+
+/** Selected slots are drawn as boxes over their stretch of staff. */
+function drawSlots(ids) {
+  const s = stage.getBoundingClientRect();
+  slotsEl.replaceChildren(
+    ...[...ids]
+      .map((id) => score.byId.get(id))
+      .filter((it) => it?.slot)
+      .map((it) => {
+        const d = document.createElement('div');
+        d.className = 'slot-box';
+        const pad = it.rect.height / 4;
+        Object.assign(d.style, { left: `${it.rect.left - s.left}px`, top: `${it.rect.top - s.top - pad}px`, width: `${it.rect.width}px`, height: `${it.rect.height + 2 * pad}px` });
+        return d;
+      }),
+  );
+}
+
+// Note entry (modes.md N1–N7).
+
+/** After the selection's focus; with nothing selected, before the first element on screen (N3). */
+function insertionPoint() {
+  const it = sel.cursor && score.byId.get(sel.cursor);
+  if (it) return { item: it, before: sel.before };
+  const first = score.items.find((i) => !i.el.classList.contains('clef'));
+  return first ? { item: first, before: !first.slot } : null;
+}
+
+/** Where the caret goes, in client px, with the staff it belongs to. */
+function caretGeometry() {
+  const ip = insertionPoint();
+  if (!ip) return null;
+  const { item, before } = ip;
+  const staffG = item.el.closest('g.staff');
+  const lines = slotRect(staffG);
+  if (!lines) return null;
+  let x;
+  if (item.slot) x = item.rect.left + 3;
+  else {
+    const b = (item.el.closest('g.chord') ?? item.el).getBoundingClientRect();
+    x = before ? b.left - 4 : b.right + 4;
+  }
+  return { ip, staffG, x, top: lines.top, bottom: lines.bottom, focusEl: doc.get(item.id) };
+}
+
+function updateCaret() {
+  const c = entry.open && caretGeometry();
+  caretEl.hidden = !c;
+  if (!c) return;
+  const s = stage.getBoundingClientRect();
+  const pad = (c.bottom - c.top) / 4;
+  Object.assign(caretEl.style, { left: `${c.x - s.left}px`, top: `${c.top - s.top - pad}px`, height: `${c.bottom - c.top + 2 * pad}px` });
+  pane.setClef(clefAt(doc.doc, c.focusEl, c.ip.item.staffN), (d) => pitchName(doc.doc, c.focusEl, d));
+}
+
+function toggleEntry() {
+  entry.open = !entry.open;
+  mainEl.classList.toggle('pane-open', entry.open);
+  paneEl.hidden = !entry.open;
+  if (!entry.open) {
+    // The position before the first note exists only while entering.
+    if (sel.before && score.byId.get(sel.cursor)) selectOnly(score.byId.get(sel.cursor));
+    ghosts.clearInsert();
+    document.getElementById('pane-label').hidden = true;
+  }
+  updateCaret();
+  hud(entry.open ? 'entry pane open — touch it to enter a note at the caret' : 'entry pane closed');
+}
+
+function setPaneSide() {
+  mainEl.classList.toggle('pane-right', settings.paneSide !== 'left');
+  mainEl.classList.toggle('pane-left', settings.paneSide === 'left');
+}
+
+/**
+ * The new note's duration: the note it follows (N4), or before the first note the one it
+ * precedes; else the last note entered, else a quarter.
+ */
+const entryLength = (c) => durationAfter(c.focusEl, entry.last);
+
+function entryScrub(d) {
+  const c = caretGeometry();
+  const clef = c && clefAt(doc.doc, c.focusEl, c.ip.item.staffN);
+  if (!clef) return;
+  const lines = staffLines(c.staffG);
+  const space = (lines.at(-1) - lines[0]) / (lines.length - 1);
+  const p = score.toPage(c.x, c.top);
+  // No horizontal position exists yet: just after the focus, overlapping the next note if need be.
+  const x = c.ip.before ? p.x - 1.6 * space : p.x + 0.3 * space;
+  const { dur, dots } = entryLength(c);
+  ghosts.showInsert(c.staffG, x, d - clef.bottom, { dur: Number(dur), dots });
+  hud(`entry: ${pitchName(doc.doc, c.focusEl, d)}`);
+}
+
+function entryLift(d) {
+  ghosts.clearInsert();
+  const c = caretGeometry();
+  if (!c) return;
+  flush();
+  const len = entryLength(c);
+  const advance = !c.ip.before && entry.run === c.ip.item.id;
+  const { note, moved } = insertNote(doc, { focus: c.focusEl, before: c.ip.before, d, dur: len.dur, dots: len.dots, advance });
+  const id = note.getAttribute('xml:id');
+  entry.run = id;
+  entry.last = len;
+  sel.ids = new Set([id]);
+  sel.fromDrag = false;
+  sel.cursor = id;
+  sel.before = false;
+  const t = score.reload(id, settings.reloadScope);
+  // Moved on to a bar on the next page: lay out afresh around the new note.
+  if (!score.byId.has(id)) {
+    score.fullLayout(id, doc.serialize());
+    score.render();
+  }
+  apply();
+  bar.refreshStatus();
+  const bar_ = note.closest('measure')?.getAttribute('n') ?? '?';
+  hud(`inserted ${pitchName(doc.doc, note, d)} in bar ${bar_}${moved ? ' (on into the next bar)' : ''} · ${t.ser + t.load + t.render} ms ${t.scope}`);
+}
+
 
 /** Points the facsimile at the measures on screen and the selection's focus measure. */
 function followSelection() {
@@ -139,6 +276,7 @@ function selectOnly(it) {
   sel.ids = new Set([it.id]);
   sel.fromDrag = false;
   sel.cursor = it.id;
+  sel.before = false;
   apply();
 }
 
@@ -146,7 +284,46 @@ function clearSelection() {
   sel.ids = new Set();
   sel.fromDrag = false;
   sel.cursor = null;
+  sel.before = false;
   apply();
+}
+
+/** The caret before `it`, with nothing selected. */
+function showBefore(it) {
+  sel.ids = new Set();
+  sel.fromDrag = false;
+  sel.cursor = it.id;
+  sel.before = true;
+  apply();
+}
+
+/** Whether `it` is the first event of its lane in its bar (a chord counts as one event). */
+function barStart(it) {
+  if (it.slot) return false;
+  const key = it.chordId ?? it.id;
+  return !score.items.some(
+    (o) => o.measure === it.measure && o.staffN === it.staffN && o.layerN === it.layerN && o.order < it.order && (o.chordId ?? o.id) !== key,
+  );
+}
+
+/**
+ * One step left (sign −1) or right (+1) from a navigation state {item, before}. While entering
+ * notes, crossing a barline in either direction passes the position before the bar's first
+ * element, so a note can go in at the start of a bar.
+ * @returns {{item: object, before?: boolean} | null}
+ */
+function stepH(state, sign) {
+  const it = state.item;
+  if (state.before) {
+    if (sign > 0) return { item: it };
+    const n = horizontal(score, it, -1);
+    return n ? { item: n } : null;
+  }
+  if (sign < 0 && entry.open && barStart(it)) return { item: it, before: true };
+  const n = horizontal(score, it, sign);
+  if (!n) return null;
+  if (sign > 0 && entry.open && n.measure !== it.measure && barStart(n)) return { item: n, before: true };
+  return { item: n };
 }
 
 const DIR_SIGN = { left: -1, right: 1, up: -1, down: 1 };
@@ -159,7 +336,13 @@ function navigate(dir) {
     selectOnly(DIR_SIGN[dir] > 0 ? items[0] : items[items.length - 1]);
     return 'started from the page edge';
   }
-  const n = dir === 'left' || dir === 'right' ? horizontal(score, cur, DIR_SIGN[dir]) : vertical(score, cur, DIR_SIGN[dir]);
+  if (dir === 'left' || dir === 'right') {
+    const st = stepH({ item: cur, before: sel.before }, DIR_SIGN[dir]);
+    if (!st) return 'no neighbour on this page; stayed put';
+    (st.before ? showBefore : selectOnly)(st.item);
+    return st.before ? 'before the first note of the bar' : '';
+  }
+  const n = vertical(score, cur, DIR_SIGN[dir]);
   if (!n) return 'no neighbour on this page; stayed put';
   selectOnly(n);
   return '';
@@ -184,7 +367,8 @@ function walkState(prev, sign, axis) {
     const it = sign > 0 ? score.items[0] : score.items.at(-1);
     return it ? { item: it } : null;
   }
-  const n = (axis === 'h' ? horizontal : vertical)(score, prev.item, sign);
+  if (axis === 'h') return stepH(prev, sign);
+  const n = vertical(score, prev.item, sign);
   return n ? { item: n } : null;
 }
 
@@ -204,7 +388,7 @@ function startScrub(axis) {
   const grow = sel.fromDrag && sel.ids.size > 0;
   const origin = grow
     ? { ids: new Set(sel.ids), cursor: sel.cursor }
-    : { item: (sel.cursor && score.byId.get(sel.cursor)) || null };
+    : { item: (sel.cursor && score.byId.get(sel.cursor)) || null, before: sel.before };
   const initial = scrub?.initial ?? { grow, state: origin };
   const trail = scrub?.trail ?? [];
   scrub = { axis, grow, paths: { 1: [origin], '-1': [origin] }, shown: 0, initial, trail };
@@ -221,7 +405,7 @@ function showState(grow, state) {
     sel.fromDrag = true;
     sel.cursor = state.cursor;
     apply();
-  } else if (state.item) selectOnly(state.item);
+  } else if (state.item) (state.before ? showBefore : selectOnly)(state.item);
   else clearSelection();
 }
 
@@ -463,6 +647,7 @@ function cancelEditScrub() {
 const NOTE_COMMAND_STEPS = { longer: ['dur', -1], shorter: ['dur', 1], down: ['pitch', -1], up: ['pitch', 1] };
 
 function noteCommand(key) {
+  if (key === 'insert') return toggleEntry();
   const [kind, steps] = NOTE_COMMAND_STEPS[key];
   editOnce(kind, steps, 'button');
 }
@@ -473,7 +658,9 @@ function toStage(r) {
 }
 
 function wireGestures() {
-  attachGestures(stage, () => settings, {
+  attachGestures(document.getElementById('work'), () => settings, {
+    // The path, not the target: the pane redraws on touch, detaching the element touched.
+    claims: (e) => !e.composedPath().includes(paneEl),
     onTap(x, y) {
       const it = score.hit(x, y, settings.tapReachPx);
       if (!it) {
@@ -537,6 +724,7 @@ function wireGestures() {
       hud(`ignored: ${reason}`);
     },
     onTwoStart() {
+      pane.cancel('two fingers');
       twoDown = true;
       clearTimeout(idleTimer);
       boxEl.hidden = true;
@@ -629,6 +817,8 @@ document.getElementById('reload-stats-reset').addEventListener('click', () => {
 async function loadFixture(key) {
   const f = FIXTURES.find((x) => x.key === key) ?? FIXTURES[0];
   doc = new MeiDoc(await (await fetch(f.url)).text());
+  entry.run = null;
+  entry.last = null;
   // Before the first layout, so the score is laid out for the stage the closed sheet leaves.
   fac.load(doc, f.url);
   reloads.length = 0;
@@ -657,8 +847,20 @@ async function main() {
     onChange: (text) => hud(text),
     onTap: selectFromFacsimile,
   });
+  pane = new EntryPane({
+    el: paneEl,
+    label: document.getElementById('pane-label'),
+    settings,
+    onScrub: entryScrub,
+    onLift: entryLift,
+    onCancel: (reason) => {
+      ghosts.clearInsert();
+      hud(`entry cancelled: ${reason}`);
+    },
+  });
+  setPaneSide();
   // Exposed for inspection from the browser console.
-  window.spike = { score, sel, settings, fac, get doc() { return doc; } };
+  window.spike = { score, sel, settings, fac, pane, entry, get doc() { return doc; } };
   bar = createBar(document.getElementById('bar'), {
     page: turnPage,
     zoom,
@@ -668,8 +870,12 @@ async function main() {
     },
     status: () => (score.pageCount ? `${score.page}/${score.pageCount}` : ''),
     note: noteCommand,
+    pressed: (key) => key === 'insert' && entry.open,
   });
-  bindSettingsDialog(settingsDialog, settings, loadFixture);
+  bindSettingsDialog(settingsDialog, settings, loadFixture, (name) => {
+    if (name === 'paneSide') setPaneSide();
+    if (name === 'paneStepPx') pane.draw();
+  });
   await loadFixture(settings.fixture);
   document.getElementById('loading').remove();
   wireGestures();

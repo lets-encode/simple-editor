@@ -32,7 +32,7 @@ function fromB40(n) {
 }
 
 /** The key signature in force at `el`, e.g. '3s', from the last @key.sig, @keysig or @sig before it. */
-function keySigFor(doc, el) {
+export function keySigFor(doc, el) {
   let sig = '0';
   const id = el.getAttributeNS(XML_NS, 'id');
   for (const s of doc.querySelectorAll(`[key\\.sig],[keysig],[sig],[*|id="${CSS.escape(id)}"]`)) {
@@ -42,7 +42,7 @@ function keySigFor(doc, el) {
   return sig;
 }
 
-function keyScale(sig) {
+export function keyScale(sig) {
   const m = /^(\d+)([sf])$/.exec(sig);
   const count = m ? Number(m[1]) : 0;
   const accid = m ? m[2] : 'n';

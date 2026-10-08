@@ -21,14 +21,29 @@ const DOT = 'E1E7';
 // Glyph widths in staff spaces (Leipzig).
 const HEAD_WIDTH = { 1: 1.69, 2: 1.18, black: 1.18 };
 
+// Clefs are harvested from staff starts: Verovio draws clef changes with smaller glyphs (E07C …).
+const CLEFS = [
+  ['F', 4, ''],
+  ['C', 3, ''],
+  ['G', 2, ' clef.dis="8" clef.dis.place="below"'],
+  ['G', 2, ' clef.dis="8" clef.dis.place="above"'],
+  ['F', 4, ' clef.dis="8" clef.dis.place="below"'],
+  ['F', 4, ' clef.dis="8" clef.dis.place="above"'],
+  ['C', 3, ' clef.dis="8" clef.dis.place="below"'],
+];
+
 const SHEET = `<?xml version="1.0" encoding="UTF-8"?>
 <mei xmlns="${MEI_NS}" meiversion="5.1"><music><body><mdiv><score>
-<scoreDef><staffGrp><staffDef n="1" lines="5" clef.shape="G" clef.line="2"/></staffGrp></scoreDef>
+<scoreDef><staffGrp><staffDef n="1" lines="5" clef.shape="G" clef.line="2"/>
+${CLEFS.map(([shape, line, dis], i) => `<staffDef n="${i + 2}" lines="5" clef.shape="${shape}" clef.line="${line}"${dis}/>`).join('')}
+</staffGrp></scoreDef>
 <section><measure n="1"><staff n="1"><layer n="1">
 ${['1', '2', '4', '8', '16', '32', '64'].map((d) => `<note pname="c" oct="5" dur="${d}" stem.dir="up"/><note pname="c" oct="5" dur="${d}" stem.dir="down"/><rest dur="${d}"/>`).join('')}
 ${Object.keys(ACCID).map((a) => `<note pname="c" oct="5" dur="4" accid="${a}"/>`).join('')}
 <note pname="c" oct="5" dur="4" dots="1"/>
-</layer></staff></measure></section></score></mdiv></body></music></mei>`;
+</layer></staff>
+${CLEFS.map((_, i) => `<staff n="${i + 2}"><layer n="1"><note pname="c" oct="4" dur="1"/></layer></staff>`).join('')}
+</measure></section></score></mdiv></body></music></mei>`;
 
 /** Renders the glyph sheet and keeps its glyphs, renamed `ghost-XXXX`, in a hidden <svg>. */
 export function harvestGlyphs(tk) {
@@ -47,7 +62,24 @@ export function harvestGlyphs(tk) {
   }
   host.append(defs);
   document.body.append(host);
+  // A full-size notehead's scale against the sheet's staff space, for drawing glyphs elsewhere.
+  const lines = staffLines(sheet.querySelector('g.staff'));
+  const head = parseUse(sheet.querySelector('g.note g.notehead use'));
+  glyphUnit = head.s / ((lines.at(-1) - lines[0]) / (lines.length - 1));
   return new Set([...defs.children].map((g) => g.id));
+}
+
+let glyphUnit = 0;
+
+/** The <use> scale that draws a glyph for a staff space of `spacePx` user units. */
+export const glyphScale = (spacePx) => glyphUnit * spacePx;
+
+/** A <use> of a harvested glyph. */
+export function glyphUse(code, x, y, s) {
+  const u = document.createElementNS(SVG_NS, 'use');
+  u.setAttribute('href', `#ghost-${code}`);
+  u.setAttribute('transform', `translate(${x}, ${y}) scale(${s}, ${s})`);
+  return u;
 }
 
 const diatonic = (pname, oct) => Number(oct) * 7 + PNAMES.indexOf(pname);
@@ -68,7 +100,7 @@ const parseUse = (use) => {
   return m ? { x: Number(m[1]), y: Number(m[2]), s: Number(m[3]) } : null;
 };
 
-function staffLines(staffG) {
+export function staffLines(staffG) {
   const ys = [...staffG.children]
     .filter((c) => c.tagName === 'path')
     .map((p) => /M[-\d.]+ ([-\d.]+)/.exec(p.getAttribute('d') ?? '')?.[1])
@@ -134,12 +166,21 @@ export class Ghosts {
     const lines = staffLines(svgEl.closest('g.staff'));
     if (!p || !lines) return null;
     const space = (lines.at(-1) - lines[0]) / (lines.length - 1);
-    const half = space / 2;
     const steps = diatonic(e.el.getAttribute('pname'), e.el.getAttribute('oct')) - diatonic(e.base.pname, e.base.oct);
-    const y = p.y - steps * half;
-    const dur = Number(e.dur);
+    const dots = Number(e.el.getAttribute('dots') ?? e.el.parentElement?.closest('chord')?.getAttribute('dots') ?? 0);
+    return this.noteAt({ x: p.x, y: p.y - (steps * space) / 2, s: p.s, lines, dur: Number(e.dur), accid: writtenAccid(e.el), dots });
+  }
+
+  /**
+   * A stand-alone note: notehead, stem, flags, written accidental, dots and ledger lines, in the
+   * page's coordinates; `x` is the notehead's left edge, `y` its centre line.
+   */
+  noteAt({ x, y, s, lines, dur, accid = null, dots = 0 }) {
+    const space = (lines.at(-1) - lines[0]) / (lines.length - 1);
+    const half = space / 2;
     const w = (HEAD_WIDTH[dur] ?? HEAD_WIDTH.black) * space;
     const out = document.createElementNS(SVG_NS, 'g');
+    const p = { x, s };
 
     // Ledger lines between the staff and the note.
     const ledger = (ly) => {
@@ -167,19 +208,33 @@ export class Ghosts {
       if (flag) out.append(this.use(flag, stemX - sw / 2, tip, p.s));
     }
 
-    const accid = writtenAccid(e.el);
     if (accid && ACCID[accid]) out.append(this.use(ACCID[accid], p.x - 1.3 * space, y, p.s));
 
-    const dots = Number(e.el.getAttribute('dots') ?? e.el.parentElement?.closest('chord')?.getAttribute('dots') ?? 0);
     const onLine = Math.round((y - lines[0]) / half) % 2 === 0;
     for (let i = 0; i < dots; i++) out.append(this.use(DOT, p.x + w + (0.4 + 0.5 * i) * space, onLine ? y - half : y, p.s));
     return out;
   }
 
+  /**
+   * The ghost of a note about to be inserted (note entry, N2): `steps` diatonic steps above the
+   * staff's bottom line, at `x` in the page's coordinates. Replaces any previous one.
+   */
+  showInsert(staffG, x, steps, { dur, dots, accid }) {
+    this.clearInsert();
+    const lines = staffLines(staffG);
+    const layer = this.container.querySelector('svg g.page-margin');
+    if (!lines || !layer) return;
+    const space = (lines.at(-1) - lines[0]) / (lines.length - 1);
+    const g = this.noteAt({ x, y: lines.at(-1) - (steps * space) / 2, s: glyphScale(space), lines, dur, accid, dots });
+    g.setAttribute('class', 'ghost-layer insert-ghost');
+    layer.append(g);
+  }
+
+  clearInsert() {
+    this.container.querySelector('g.insert-ghost')?.remove();
+  }
+
   use(code, x, y, s) {
-    const u = document.createElementNS(SVG_NS, 'use');
-    u.setAttribute('href', `#ghost-${code}`);
-    u.setAttribute('transform', `translate(${x}, ${y}) scale(${s}, ${s})`);
-    return u;
+    return glyphUse(code, x, y, s);
   }
 }

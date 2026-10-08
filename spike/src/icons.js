@@ -5,10 +5,10 @@ const LINES = [18, 26];
 const POS = { between: 22, bottom: 26, top: 18 };
 
 /**
- * @param {{dur: 2|4|8|16, pos?: 'between'|'bottom'|'top'}} spec
+ * @param {{dur: 2|4|8|16, pos?: 'between'|'bottom'|'top', sparkle?: boolean}} spec
  * @returns {SVGSVGElement}
  */
-export function noteIcon({ dur, pos = 'between' }) {
+export function noteIcon({ dur, pos = 'between', sparkle = false }) {
   const cx = 11;
   const cy = POS[pos];
   const stemX = cx + 4.1;
@@ -29,6 +29,7 @@ export function noteIcon({ dur, pos = 'between' }) {
       ${head}
       <line x1="${stemX}" x2="${stemX}" y1="${cy - 0.8}" y2="${top}" stroke-width="1.3" />
       <g fill="none" stroke-width="1.6">${flags}</g>
+      ${sparkle ? '<path d="M4 3 l1.2 3.3 3.3 1.2 -3.3 1.2 -1.2 3.3 -1.2 -3.3 -3.3 -1.2 3.3 -1.2 z" stroke="none" />' : ''}
     </g>`;
   return svg;
 }

@@ -84,7 +84,7 @@ export class Facsimile {
   /** Snaps to a resting height; the stage takes the room left once the animation is over. */
   settle(rest, animate = true) {
     if (!this.available) {
-      this.stage.style.top = '0px';
+      this.main.style.setProperty('--stage-top', '0px');
       return;
     }
     this.rest = rest;
@@ -94,7 +94,7 @@ export class Facsimile {
     clearTimeout(this.settleTimer);
     if (rest === 'full') return;
     const shrink = () => {
-      this.stage.style.top = `${h}px`;
+      this.main.style.setProperty('--stage-top', `${h}px`);
     };
     if (animate) this.settleTimer = setTimeout(shrink, 200);
     else shrink();

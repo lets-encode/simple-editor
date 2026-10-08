@@ -35,6 +35,14 @@ export class MeiDoc {
     return music ? [...music.querySelectorAll('measure')].map((m) => m.getAttributeNS(XML_NS, 'id')) : [];
   }
 
+  /** Gives a new element an ephemeral id and indexes it. */
+  register(el) {
+    const id = `eph-${el.localName}-${++this.ephemeral}`;
+    el.setAttributeNS(XML_NS, 'xml:id', id);
+    this.byId.set(id, el);
+    return id;
+  }
+
   get(id) {
     return this.byId.get(id) ?? null;
   }

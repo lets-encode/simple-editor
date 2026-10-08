@@ -31,6 +31,7 @@
  * @property {(steps: number) => void} onTwoScrubEnd
  * @property {(reason: string) => void} onTwoCancel
  * @property {() => void} onTwoStart
+ * @property {(e: PointerEvent) => boolean} [claims] whether a first finger starts a one-finger gesture
  */
 
 /** @param {HTMLElement} el @param {() => object} getSettings @param {GestureHandlers} h */
@@ -116,6 +117,8 @@ export function attachGestures(el, getSettings, h) {
       return;
     }
     if (blocked || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    // A first finger elsewhere (the entry pane) is tracked for two-finger gestures only.
+    if (h.claims && !h.claims(e)) return;
     try {
       el.setPointerCapture(e.pointerId);
     } catch {

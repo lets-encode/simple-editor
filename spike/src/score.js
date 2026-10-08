@@ -5,6 +5,8 @@ const MEI_NS = 'http://www.music-encoding.org/ns/mei';
 
 const NAV_CLASSES = ['note', 'rest', 'mRest', 'beatRpt', 'halfmRpt', 'mRpt', 'clef'];
 const NAV_SELECTOR = NAV_CLASSES.map((c) => `g.${c}`).join(',');
+// A layer with no navigable element in it is a slot (note entry, N6), navigable like an element.
+const INDEX_SELECTOR = `${NAV_SELECTOR},g.layer`;
 
 export const SCALES = [25, 30, 35, 40, 45, 50, 60, 70, 80, 100, 120];
 
@@ -23,6 +25,7 @@ export const SCALES = [25, 30, 35, 40, 45, 50, 60, 70, 80, 100, 120];
  * @property {number} cx
  * @property {number} cy
  * @property {number} t       page-local onset: measure index × 1000 + quarters into the measure
+ * @property {boolean} slot   an empty layer, standing in for its (missing) events
  */
 
 export class Score {
@@ -93,6 +96,9 @@ export class Score {
     const starts = this.systemStarts[this.page - 1];
     if (!range || !starts) return null;
     const next = this.ranges[this.page]?.[0] ?? null;
+    // The file's own breaks would add to ours: set them aside while serialising.
+    const own = [...this.doc.doc.querySelector('music').querySelectorAll('sb, pb')].map((b) => [b, b.parentNode, b.nextSibling]);
+    for (const [b] of own) b.remove();
     const added = [...starts.slice(1), ...(next ? [next] : [])].map((id) => {
       const sb = this.doc.doc.createElementNS(MEI_NS, 'sb');
       this.doc.get(id).before(sb);
@@ -100,6 +106,7 @@ export class Score {
     });
     const mei = this.doc.serialize();
     for (const sb of added) sb.remove();
+    for (const [b, parent, next] of own.reverse()) parent.insertBefore(b, next);
     return { mei, start: range[0], end: next ?? 'simple-editor-to-the-end' };
   }
 
@@ -205,14 +212,22 @@ export class Score {
     const measureIndex = new Map(this.measures.map((m, i) => [m, i]));
     this.items = [];
     this.byId = new Map();
-    for (const el of svg.querySelectorAll(NAV_SELECTOR)) {
-      const layer = el.closest('g.layer');
+    for (const el of svg.querySelectorAll(INDEX_SELECTOR)) {
+      const slot = el.classList.contains('layer');
+      if (slot && el.querySelector(NAV_SELECTOR)) continue;
+      const layer = slot ? el : el.closest('g.layer');
       const staff = el.closest('g.staff');
       const measure = el.closest('g.measure');
       if (!layer || !staff || !measure) continue;
-      const head = el.classList.contains('note') ? el.querySelector('g.notehead') : null;
-      const rect = (head ?? el).getBoundingClientRect();
-      if (rect.width === 0 && rect.height === 0) continue;
+      let rect;
+      if (slot) {
+        rect = slotRect(staff);
+        if (!rect) continue;
+      } else {
+        const head = el.classList.contains('note') ? el.querySelector('g.notehead') : null;
+        rect = (head ?? el).getBoundingClientRect();
+        if (rect.width === 0 && rect.height === 0) continue;
+      }
       const chord = el.classList.contains('note') ? el.closest('g.chord') : null;
       const item = {
         el,
@@ -227,6 +242,7 @@ export class Score {
         rect,
         cx: rect.x + rect.width / 2,
         cy: rect.y + rect.height / 2,
+        slot,
       };
       this.items.push(item);
       this.byId.set(item.id, item);
@@ -264,6 +280,14 @@ export class Score {
     }
   }
 
+  /** Client point to the coordinates of the page's <g class="page-margin">, where glyphs are drawn. */
+  toPage(x, y) {
+    const g = this.container.querySelector('svg g.page-margin');
+    const m = g?.getScreenCTM();
+    if (!m) return null;
+    return new DOMPoint(x, y).matrixTransform(m.inverse());
+  }
+
   /** The navigable item nearest to a client point, if within `reach` px of its glyph. */
   hit(x, y, reach) {
     let best = null;
@@ -293,7 +317,7 @@ export class Score {
     const attr = el
       ? { pname: el.getAttribute('pname'), oct: el.getAttribute('oct'), accid: el.getAttribute('accid') ?? accidChild?.getAttribute('accid'), 'accid.ges': el.getAttribute('accid.ges') ?? accidChild?.getAttribute('accid.ges') }
       : (this.tk.getElementAttr(id) ?? {});
-    const kind = it?.el.classList[0] ?? 'element';
+    const kind = it?.slot ? 'empty' : (it?.el.classList[0] ?? 'element');
     let what = kind;
     if (kind === 'note' && attr.pname) {
       const accid = { s: '♯', f: '♭', n: '♮', ss: '𝄪', ff: '𝄫' }[attr.accid ?? attr['accid.ges']] ?? '';
@@ -302,4 +326,22 @@ export class Score {
     const m = it ? this.tk.getElementAttr(it.measure.id)?.n : undefined;
     return it ? `${what} · bar ${m ?? '?'} · staff ${it.staffN} · layer ${it.layerN}` : what;
   }
+}
+
+/**
+ * A slot's rectangle in client px: the staff's lines in this measure, starting after any clef,
+ * key or time signature drawn at its start.
+ */
+export function slotRect(staffG) {
+  let r = null;
+  for (const line of staffG.children) {
+    if (line.tagName !== 'path') continue;
+    const b = line.getBoundingClientRect();
+    r = r ? { left: Math.min(r.left, b.left), right: Math.max(r.right, b.right), top: Math.min(r.top, b.top), bottom: Math.max(r.bottom, b.bottom) } : { left: b.left, right: b.right, top: b.top, bottom: b.bottom };
+  }
+  if (!r) return null;
+  for (const sig of staffG.querySelectorAll(':scope > g.clef, :scope > g.keySig, :scope > g.meterSig')) {
+    r.left = Math.max(r.left, sig.getBoundingClientRect().right + 4);
+  }
+  return new DOMRect(r.left, r.top, Math.max(r.right - r.left, 8), r.bottom - r.top);
 }
