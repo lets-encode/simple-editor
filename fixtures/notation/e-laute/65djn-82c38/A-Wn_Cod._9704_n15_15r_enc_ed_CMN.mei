@@ -1,0 +1,461 @@
+<?xml version="1.0" encoding="UTF-8"?><?xml-model href="https://music-encoding.org/schema/5.1/mei-all.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?><?xml-model href="https://music-encoding.org/schema/5.1/mei-all.rng" type="application/xml" schematypens="http://purl.oclc.org/dsdl/schematron"?><mei xml:id="mei-jtxv4a" meiversion="5.1" xmlns="http://www.music-encoding.org/ns/mei">
+   <meiHead xml:id="meiHead-pt0cip2">
+      <fileDesc xml:id="fileDesc-e1a5mx2">
+         <titleStmt xml:id="titleStmt-arnkhn2">
+            <title xml:id="title-kec3e51" type="main">Schreyber in karb (Schreiber im Korb)<titlePart xml:id="titlePart-1bkp2a1" type="subordinate">edition in <abbr xml:id="abbr-rdx0uz1" expan="Common Music Notation">CMN</abbr>
+               </titlePart>
+            </title>
+            <title xml:id="title-046d3m1" type="original">Schreyber in karb</title>
+            <title xml:id="title-gxjq6g1" type="normalized">Schreiber im Korb</title>
+            <respStmt xml:id="respStmt-d0mwyr2">
+               <persName xml:id="projectstaff-17" auth.uri="https://e-laute.info/data/projectstaff/17" role="fronimoEditor">
+                  <foreName xml:id="foreName-rt78lu2">Irina</foreName>
+                  <famName xml:id="famName-bhujft1">Döring</famName>
+               </persName>
+               <persName xml:id="projectstaff-1" auth.uri="https://e-laute.info/data/projectstaff/1" role="meiEditor">
+                  <foreName xml:id="foreName-rz7fv11">Kateryna</foreName>
+                  <famName xml:id="famName-nhectx1">Schöning</famName>
+               </persName>
+               <persName xml:id="projectstaff-16" auth.uri="https://e-laute.info/data/projectstaff/16" role="musescoreEditor">
+                  <foreName xml:id="foreName-91bxzy2">Henning</foreName>
+                  <famName xml:id="famName-u8fubl2">Burghoff</famName>
+               </persName>
+               <persName xml:id="persName-kt2gyg1" auth.uri="https://e-laute.info/data/projectstaff/17" corresp="#projectstaff-17" role="meiEditor">
+                  <foreName xml:id="foreName-a9ukd01">Irina</foreName>
+                  <famName xml:id="famName-da9th7">Döring</famName>
+               </persName>
+               <persName xml:id="persName-o903as1" auth.uri="https://e-laute.info/data/projectstaff/16" corresp="#projectstaff-16" role="meiEditor">
+                  <foreName xml:id="foreName-0mm8pu1">Henning</foreName>
+                  <famName xml:id="famName-xj6byn1">Burghoff</famName>
+               </persName>
+               <persName xml:id="projectstaff-10" auth.uri="https://e-laute.info/data/projectstaff/10" role="metadataContact">
+                  <foreName xml:id="foreName-f4ekx2">Ilias</foreName>
+                  <famName xml:id="famName-oe46n1">Kyriazis</famName>
+               </persName>
+               <persName xml:id="projectstaff-15" auth.uri="https://e-laute.info/data/projectstaff/15" role="metadataContact">
+                  <foreName xml:id="foreName-18ss3n2">Julia</foreName>
+                  <famName xml:id="famName-guwz831">Jaklin</famName>
+               </persName>
+               <corpName xml:id="elaute" role="provider">
+                  <ref xml:id="ref-oseuwi1" target="https://doi.org/10.55776/I6019">
+                     <abbr xml:id="abbr-o5v0kt1">E-LAUTE</abbr>
+                     <expan xml:id="expan-q7q0v41">Electronic Linked Annotated Unified Tablature Edition</expan>
+                  </ref>
+               </corpName>
+               <corpName xml:id="weave" role="funder">
+                  <ref xml:id="ref-o7w33m2" target="https://weave-research.net/">Weave</ref>
+               </corpName>
+               <corpName xml:id="fwf" role="funder">
+                  <ref xml:id="ref-g3i7kn2" target="https://www.fwf.ac.at/">
+                     <abbr xml:id="abbr-ova66c1">FWF</abbr>
+                     <expan xml:id="expan-o0x2yq2">Austrian Science Fund</expan>
+                  </ref>
+               </corpName>
+               <corpName xml:id="dfg" role="funder">
+                  <ref xml:id="ref-d3c06u2" target="https://www.dfg.de/">
+                     <abbr xml:id="abbr-orqn4o1">DFG</abbr>
+                     <expan xml:id="expan-kd4px71">German Research Foundation</expan>
+                  </ref>
+               </corpName>
+               <corpName xml:id="snf" role="funder">
+                  <ref xml:id="ref-uo3szv2" target="https://www.snf.ch/">
+                     <abbr xml:id="abbr-w3uoes2">SNF</abbr>
+                     <expan xml:id="expan-szdrkc1">Swiss National Science Foundation</expan>
+                  </ref>
+               </corpName>
+            </respStmt>
+         </titleStmt>
+         <editionStmt xml:id="editionStmt-c3l9j91">
+            <edition xml:id="edition-4n3r871" n="1" resp="#projectstaff-16">First edition in CMN. Lute tuned in A.</edition>
+         </editionStmt>
+         <pubStmt xml:id="pubStmt-r2y1s6">
+            <publisher xml:id="publisher-pdituy2">
+               <corpName xml:id="corpName-dyb2d51">
+                  <ref xml:id="ref-oqslhk2" target="http://www.onb.ac.at">Austrian National Library</ref>
+               </corpName>
+               <address xml:id="address-woyr7b">
+                  <street xml:id="street-x5tksj1">Josefsplatz 1</street>
+                  <postCode xml:id="postCode-gyig7h1">1015</postCode>
+                  <settlement xml:id="settlement-v3qcn9">Vienna</settlement>
+                  <country xml:id="country-5yjbq61">Austria</country>
+               </address>
+            </publisher>
+            <date xml:id="date-bz18vw1" isodate="2025-08-23">2025-08-23</date>
+            <pubPlace xml:id="pubPlace-b3ry7o1">
+               <ref xml:id="ref-nldwdw2" target="http://www.geonames.org/2761369/">Vienna</ref>
+            </pubPlace>
+            <distributor xml:id="distributor-oweiqj1">
+               <corpName xml:id="corpName-jlvpzn2">
+                  <ref xml:id="ref-ojo2cd" target="http://www.onb.ac.at">Austrian National Library</ref>
+               </corpName>
+               <address xml:id="address-o25r1i2">
+                  <street xml:id="street-3wo29t2">Josefsplatz 1</street>
+                  <postCode xml:id="postCode-yo2qhq1">1015</postCode>
+                  <settlement xml:id="settlement-emzy5x1">Vienna</settlement>
+                  <country xml:id="country-b742zl1">Austria</country>
+               </address>
+            </distributor>
+            <availability xml:id="availability-koac1n1">
+               <useRestrict xml:id="useRestrict-n5ob421">
+                  <ref xml:id="ref-2wq575" target="https://creativecommons.org/licenses/by-sa/4.0/">Distributed under the Creative Commons Attribution-ShareAlike 4.0 International license (CC BY-SA 4.0)</ref>
+               </useRestrict>
+            </availability>
+            <identifier xml:id="identifier-l3v7vz1" type="PID">o:lau.A-Wn_Cod._9704_n15</identifier>
+         </pubStmt>
+         <sourceDesc xml:id="sourceDesc-e3sc151">
+            <source xml:id="source-3lt0vo1">
+               <biblStruct xml:id="biblStruct-mswyim2">
+                  <analytic xml:id="analytic-a0qcac1">
+                     <title xml:id="title-rxmpr6">Schreyber in karb</title>
+                     <respStmt xml:id="respStmt-0ocvfm2">
+                        <persName xml:id="persons-216" auth.uri="https://e-laute.info/data/persons/216" role="scribe">
+                           <foreName xml:id="foreName-n9cquz1">Jakob</foreName>
+                           <famName xml:id="famName-oefyu1">Thurner</famName>
+                        </persName>
+                     </respStmt>
+                     <biblScope xml:id="biblScope-7xqwc01">15r</biblScope>
+                     <identifier xml:id="identifier-3q5efe1">A-Wn_Cod._9704_n15</identifier>
+                  </analytic>
+                  <monogr xml:id="monogr-6wkj7c1">
+                     <title xml:id="title-tpqsmz2">Cantilenae germanicae nec non odae latinae cum notis musicis</title>
+                     <identifier xml:id="identifier-7bzwm51">A-Wn_Cod._9704</identifier>
+                     <respStmt xml:id="respStmt-zceqwu1">
+                        <persName xml:id="persName-7ho0xc1" auth.uri="https://e-laute.info/data/persons/216" corresp="persons-216" role="scribe">
+                           <foreName xml:id="foreName-f7wqdr1">Jakob</foreName>
+                           <famName xml:id="famName-tya0fs1">Thurner</famName>
+                        </persName>
+                     </respStmt>
+                     <imprint xml:id="imprint-ky7r4t1">
+                        <pubPlace xml:id="pubPlace-1j25cv1">
+                           <geogName xml:id="places-88" auth.uri="https://e-laute.info/data/places/88">Vendabona</geogName>
+                        </pubPlace>
+                        <date xml:id="date-kageqw2" notafter="1524" notbefore="1519">ca. 1520 s.-ca. 1523 s.</date>
+                     </imprint>
+                  </monogr>
+               </biblStruct>
+            </source>
+         </sourceDesc>
+      </fileDesc>
+      <encodingDesc xml:id="encodingDesc-spqrli2">
+         <appInfo xml:id="aw5h6m51">
+            <application xml:id="awfa4v41" isodate="2024-12-22" version="1.5.1">
+               <name xml:id="n2id2jy1">luteconv</name>
+            </application>
+            <application xml:id="axwqf6d1" enddate="2026-02-09T21:31:18" startdate="2024-12-22T13:13:10" version="1.2.9">
+               <name xml:id="nm2mwms2">mei-friend</name>
+               <p xml:id="pvob2at1">First edit by mei-friend 1.0.14p, 3 September 2024.</p>
+            </application>
+            <application xml:id="application-qnzv4p2" enddate="2026-02-01" startdate="2025-12-09">
+               <name xml:id="name-hht3dz1">GitHub Action Scripts</name>
+               <p xml:id="p-8rw7d">Adjusted Finis position (Guideline-change)</p>
+               <p xml:id="p-13kfzt1">Adjusted the Header according to Guidelines</p>
+               <p xml:id="p-sqf2c6">Took header from ed_GLT and adjusted to ed_CMN</p>
+               <p xml:id="p-kf0zl8">Adjusted staffDef, added facsimile and first fol_dir, ensured pickup count</p>
+            </application>
+            <application xml:id="ai4aoo" isodate="2026-01-31T13:36:19" version="6.0.1-ffbc336">
+               <name xml:id="nbtdqck">Verovio</name>
+               <p xml:id="p1k4465k">Transcoded from MusicXML</p>
+            </application>
+            <application xml:id="application-v2tusa1" isodate="2026-01-09" version="0.3.200">
+               <name xml:id="name-wc3lse">abtab -- transcriber</name>
+               <p xml:id="p-z2hs0h1">A-Wn_Cod._9704_n15_15r_enc_ed_GLT</p>
+            </application>
+         </appInfo>
+         <editorialDecl xml:id="editorialDecl-usv33c">
+            <p xml:id="p-4wcffu2">E-LAUTE Edition Guidelines: https://edition.onb.ac.at/fedora/objects/o:lau.red-editionguidelines/datastreams/MEI_CONVENTIONS/content</p>
+            <p xml:id="p-s873fq2"/>
+         </editorialDecl>
+      </encodingDesc>
+      <revisionDesc xml:id="revisionDesc-5wmk8j1">
+         <change xml:id="change-tvqdco1" isodate="YYYY-MM-DD" n="1" resp="#">
+            <changeDesc xml:id="changeDesc-29xks7">
+               <p xml:id="p-l8sf7s2"/>
+            </changeDesc>
+         </change>
+      </revisionDesc>
+   </meiHead>
+   <music xml:id="music-1pzuq4">
+      <facsimile xml:id="facsimile-82woiv1">
+         <surface xml:id="sqoe0no1" n="1">
+            <graphic xml:id="graphic-zvmtsf" target="https://api.onb.ac.at/iiif/image/v3/10018ADB/uk4nGb4kRnQ7YBKL/full/max/0/default.jpg"/>
+         </surface>
+      </facsimile>
+      <body xml:id="body-kccibf">
+         <mdiv xml:id="v1swrem8">
+            <score xml:id="wd7e2xp">
+               <scoreDef xml:id="x1v22im2">
+                  <staffGrp xml:id="d1k2tzi0">
+                     <staffGrp xml:id="P1" bar.thru="true">
+                        <grpSym xml:id="a16olf64" symbol="brace"/>
+                        <instrDef xml:id="etoax74" midi.channel="0" midi.volume="78%"/>
+                        <staffDef xml:id="gi35i30" lines="5" n="1" ppq="2">
+                           <clef xml:id="nvfvqap" line="2" shape="G"/>
+                           <keySig xml:id="o1nehe13" sig="0"/>
+                           <meterSig xml:id="p1f3qs8y" count="3" enclose="brack" unit="2"/>
+                        </staffDef>
+                        <staffDef xml:id="qskmjgp" lines="5" n="2" ppq="2">
+                           <clef xml:id="x1nzi22i" line="4" shape="F"/>
+                           <keySig xml:id="yr4cm6a" sig="0"/>
+                           <meterSig xml:id="zptcir8" count="3" enclose="brack" unit="2"/>
+                        </staffDef>
+                     </staffGrp>
+                  </staffGrp>
+               </scoreDef>
+               <section xml:id="yfpy18b" facs="#sqoe0no1" n="15r">
+                  <pb xml:id="z1hadlgj"/>
+                  <measure xml:id="beaikha" metcon="false" n="0" type="pickup">
+                     <staff xml:id="kqaccle" n="1">
+                        <layer xml:id="pxu73v9" n="1">
+                           <beam xml:id="qxaofs7">
+                              <note xml:id="r3yls8c" dur="8" dur.ppq="1" oct="5" pname="d" stem.dir="down"/>
+                              <note xml:id="s1iiaj3f" dur="8" dur.ppq="1" oct="5" pname="c" stem.dir="down"/>
+                              <note xml:id="t1j67fyl" dur="8" dur.ppq="1" oct="4" pname="b" stem.dir="down"/>
+                              <note xml:id="ujokuil" dur="8" dur.ppq="1" oct="4" pname="a" stem.dir="down"/>
+                           </beam>
+                        </layer>
+                     </staff>
+                     <staff xml:id="l1mmtqv0" n="2">
+                        <layer xml:id="van2umh" n="5">
+                           <rest xml:id="whdralu" dur="2" dur.ppq="4"/>
+                        </layer>
+                     </staff>
+                     <dir xml:id="dir-nqg4sk1" place="above" staff="1" tstamp="1" type="ref">
+                        <rend xml:id="rend-7nj1ti2" fontsize="x-small" fontstyle="normal">fol. 15r</rend>
+                     </dir>
+                  </measure>
+                  <measure xml:id="xou875l" n="1">
+                     <staff xml:id="gwii2df" n="1">
+                        <layer xml:id="i141itc" n="1">
+                           <note xml:id="j7ipidy" dur="2" dur.ppq="4" oct="5" pname="d" stem.dir="down"/>
+                           <note xml:id="k1dnnoh8" dur="2" dur.ppq="4" oct="5" pname="e" stem.dir="down"/>
+                           <note xml:id="l1n6rc2v" dur="2" dur.ppq="4" oct="5" pname="d" stem.dir="down"/>
+                        </layer>
+                     </staff>
+                     <staff xml:id="h1o30g1q" n="2">
+                        <layer xml:id="m1w80bc" n="5">
+                           <note xml:id="n1fxss21" dur="2" dur.ppq="4" oct="3" pname="d" stem.dir="down"/>
+                           <note xml:id="o31ictk" dur="2" dur.ppq="4" oct="3" pname="g" stem.dir="down"/>
+                           <note xml:id="p1we7uoz" dur="2" dur.ppq="4" oct="3" pname="d" stem.dir="down"/>
+                        </layer>
+                     </staff>
+                  </measure>
+                  <measure xml:id="q1ekihbe" n="2">
+                     <staff xml:id="z1iah6o2" n="1">
+                        <layer xml:id="b1n8ff73" n="1">
+                           <choice xml:id="cvaygf51" corresp="#cyw864f1" resp="#projectstaff-16">
+                              <sic xml:id="ssskvmh">
+                                 <note xml:id="c1cnaf79" dur="2" dur.ppq="4" oct="4" pname="b" stem.dir="down"/>
+                              </sic>
+                              <corr xml:id="c4ba1ed">
+                                 <note xml:id="note-qzxxrg" dots="1" dur="2" dur.ppq="6" oct="4" pname="b" stem.dir="down"/>
+                              </corr>
+                           </choice>
+                           <beam xml:id="d1cq5j1y">
+                              <note xml:id="e1ny03w7" dur="8" dur.ppq="1" oct="4" pname="b" stem.dir="up"/>
+                              <note xml:id="fuj9s9z" dur="8" dur.ppq="1" oct="4" pname="a" stem.dir="up"/>
+                           </beam>
+                           <note xml:id="g1blpxwt" dur="2" dur.ppq="4" oct="4" pname="g" stem.dir="up"/>
+                        </layer>
+                     </staff>
+                     <staff xml:id="arr7zox" n="2">
+                        <layer xml:id="h60vm2r" n="5">
+                           <choice xml:id="cyw864f1" corresp="#cvaygf51" resp="#projectstaff-16">
+                              <sic xml:id="sxmbakr1">
+                                 <note xml:id="ixym7ok" dots="1" dur="2" dur.ppq="6" oct="3" pname="g"/>
+                              </sic>
+                              <corr xml:id="csbp45v1">
+                                 <note xml:id="note-1oibt1" dur="1" dur.ppq="8" oct="3" pname="g"/>
+                              </corr>
+                           </choice>
+                           <note xml:id="j1pqdkou" dur="2" dur.ppq="4" oct="3" pname="g" stem.dir="down"/>
+                        </layer>
+                     </staff>
+                  </measure>
+                  <measure xml:id="kprporo" n="3">
+                     <staff xml:id="tdumxge" n="1">
+                        <layer xml:id="vdc3hko" n="1">
+                           <note xml:id="w1hp45ds" dur="2" dur.ppq="4" oct="5" pname="d" stem.dir="down"/>
+                           <note xml:id="xp6cpe2" dur="2" dur.ppq="4" oct="5" pname="d" stem.dir="down"/>
+                           <note xml:id="ybahq35" dur="2" dur.ppq="4" oct="5" pname="c" stem.dir="down"/>
+                        </layer>
+                     </staff>
+                     <staff xml:id="u1f7kr7m" n="2">
+                        <layer xml:id="zt04ree" n="5">
+                           <note xml:id="a12fsrrr" dur="2" dur.ppq="4" oct="3" pname="d" stem.dir="down"/>
+                           <note xml:id="bb8okgr" dur="2" dur.ppq="4" oct="3" pname="d" stem.dir="down"/>
+                           <note xml:id="c1wpypkj" dur="2" dur.ppq="4" oct="3" pname="a" stem.dir="down"/>
+                        </layer>
+                     </staff>
+                  </measure>
+                  <sb xml:id="o1hnltbi"/>
+                  <ending xml:id="dkc60ty" lendsym="angledown" n="1">
+                     <measure xml:id="dxvbfvq" n="4a" right="rptend">
+                        <staff xml:id="m1fb2u4z" n="1">
+                           <layer xml:id="p8jac7o" n="1">
+                              <note xml:id="q11ygjmn" dur="1" dur.ppq="8" oct="5" pname="d"/>
+                              <beam xml:id="r1y9tm2u">
+                                 <note xml:id="srr997w" dur="8" dur.ppq="1" oct="5" pname="d" stem.dir="down"/>
+                                 <note xml:id="t4bdmer" dur="8" dur.ppq="1" oct="5" pname="c" stem.dir="down"/>
+                                 <note xml:id="u1iebpyv" dur="8" dur.ppq="1" oct="4" pname="b" stem.dir="down"/>
+                                 <note xml:id="vbehh78" dur="8" dur.ppq="1" oct="4" pname="a" stem.dir="down"/>
+                              </beam>
+                           </layer>
+                        </staff>
+                        <staff xml:id="n17hghqo" n="2">
+                           <layer xml:id="w101l5c4" n="5">
+                              <note xml:id="x10ab2k9" dur="1" dur.ppq="8" oct="3" pname="d"/>
+                              <rest xml:id="ye6syuf" dur="2" dur.ppq="4"/>
+                           </layer>
+                        </staff>
+                     </measure>
+                  </ending>
+                  <ending xml:id="e12epsw0" lendsym="none" n="2">
+                     <measure xml:id="zzhzmgg" n="4b">
+                        <staff xml:id="i1ngtys1" n="1">
+                           <layer xml:id="k1ieg2q4" n="1">
+                              <note xml:id="l1u1zpcn" dots="1" dur="1" dur.ppq="12" oct="5" pname="d"/>
+                           </layer>
+                        </staff>
+                        <staff xml:id="jl7nij4" n="2">
+                           <layer xml:id="m40tb9a" n="5">
+                              <annot xml:id="arq0iw11" plist="#n14fb9v2 #l1u1zpcn" type="score">In the original, fermata on top that seems to have the duration of a dotted brevis.</annot>
+                              <note xml:id="n14fb9v2" dots="1" dur="1" dur.ppq="12" oct="3" pname="d"/>
+                           </layer>
+                        </staff>
+                     </measure>
+                  </ending>
+                  <measure xml:id="o16oz4xt" n="5">
+                     <staff xml:id="x9umlu" n="1">
+                        <layer xml:id="z18yvzxn" n="1">
+                           <note xml:id="a5x1kb6" dur="2" dur.ppq="4" oct="5" pname="c" stem.dir="down"/>
+                           <note xml:id="b1tw0m88" dur="2" dur.ppq="4" oct="5" pname="d" stem.dir="down"/>
+                           <note xml:id="cdlysxe" dur="2" dur.ppq="4" oct="5" pname="c" stem.dir="down"/>
+                        </layer>
+                     </staff>
+                     <staff xml:id="ytr907r" n="2">
+                        <layer xml:id="dbsjenm" n="5">
+                           <note xml:id="e2cis3i" dur="2" dur.ppq="4" oct="3" pname="a" stem.dir="down"/>
+                           <note xml:id="ft44cwj" dur="2" dur.ppq="4" oct="3" pname="d" stem.dir="down"/>
+                           <note xml:id="guxxmim" dur="2" dur.ppq="4" oct="3" pname="a" stem.dir="down"/>
+                        </layer>
+                     </staff>
+                  </measure>
+                  <measure xml:id="h1jo51s3" n="6">
+                     <staff xml:id="q1hdhb3p" n="1">
+                        <layer xml:id="s1qzuvw7" n="1">
+                           <choice xml:id="cvisqeb1" corresp="#cbz6ydm1" resp="#projectstaff-16">
+                              <sic xml:id="sy99yis2">
+                                 <note xml:id="txmnwj7" dur="2" dur.ppq="4" oct="4" pname="b" stem.dir="down"/>
+                              </sic>
+                              <corr xml:id="c5qsdph1">
+                                 <note xml:id="note-2p5mom1" dots="1" dur="2" dur.ppq="6" oct="4" pname="b" stem.dir="down"/>
+                              </corr>
+                           </choice>
+                           <beam xml:id="u4ass8t">
+                              <note xml:id="vylthbr" dur="8" dur.ppq="1" oct="4" pname="a" stem.dir="up"/>
+                              <note xml:id="w1hzt0wh" dur="8" dur.ppq="1" oct="4" pname="g" stem.dir="up"/>
+                           </beam>
+                           <note xml:id="x8cn8nr" dur="2" dur.ppq="4" oct="4" pname="f" stem.dir="up">
+                              <accid xml:id="y1qwhm5x" accid="s"/>
+                           </note>
+                        </layer>
+                     </staff>
+                     <staff xml:id="rcmwuow" n="2">
+                        <layer xml:id="z5m8oym" n="5">
+                           <choice xml:id="cbz6ydm1" corresp="#cvisqeb1" resp="#projectstaff-16">
+                              <sic xml:id="sl7hdji2">
+                                 <note xml:id="a1gke27p" dots="1" dur="2" dur.ppq="6" oct="3" pname="g"/>
+                              </sic>
+                              <corr xml:id="cjoyx3d">
+                                 <note xml:id="note-jjzzdp1" dur="1" dur.ppq="8" oct="3" pname="g"/>
+                              </corr>
+                           </choice>
+                           <note xml:id="b10ck1xw" dur="2" dur.ppq="4" oct="3" pname="d" stem.dir="down"/>
+                        </layer>
+                     </staff>
+                  </measure>
+                  <sb xml:id="nayu8sr"/>
+                  <measure xml:id="c1dyfziv" n="7">
+                     <staff xml:id="l13kdals" n="1">
+                        <layer xml:id="oycvynj" n="1">
+                           <note xml:id="pkwu7id" dur="2" dur.ppq="4" oct="4" pname="g" stem.dir="up"/>
+                           <note xml:id="q7avm39" dur="1" dur.ppq="8" oct="4" pname="a"/>
+                        </layer>
+                     </staff>
+                     <staff xml:id="m1c18sgn" n="2">
+                        <layer xml:id="r8ff7he" n="5">
+                           <note xml:id="s1fkoxad" dur="2" dur.ppq="4" oct="3" pname="g" stem.dir="down"/>
+                           <note xml:id="teksunq" accid="n" dur="1" dur.ppq="8" oct="3" pname="f"/>
+                        </layer>
+                     </staff>
+                  </measure>
+                  <measure xml:id="u1ayijk4" n="8">
+                     <staff xml:id="d3t4y0w" n="1">
+                        <layer xml:id="fyoo4yv" n="1">
+                           <note xml:id="g9ux43e" dur="2" dur.ppq="4" oct="4" pname="b" stem.dir="down"/>
+                           <note xml:id="h1hgtd8h" dur="2" dur.ppq="4" oct="4" pname="a" stem.dir="up"/>
+                           <note xml:id="is9ncvi" dur="2" dur.ppq="4" oct="4" pname="a" stem.dir="up"/>
+                        </layer>
+                     </staff>
+                     <staff xml:id="epyisva" n="2">
+                        <layer xml:id="jcrq5nk" n="5">
+                           <note xml:id="k1u9cpb1" dur="2" dur.ppq="4" oct="3" pname="g" stem.dir="down"/>
+                           <note xml:id="l1f9jqo2" dur="1" dur.ppq="8" oct="3" pname="f"/>
+                        </layer>
+                     </staff>
+                  </measure>
+                  <measure xml:id="m1u4248o" n="9">
+                     <staff xml:id="v432z1y" n="1">
+                        <layer xml:id="x1n4on19" n="1">
+                           <annot xml:id="a6oed75" plist="#y1811sme #k1rqz0mg" type="score">In the original, fermata on top that seems to have the duration of a dotted semibrevis.</annot>
+                           <note xml:id="y1811sme" dots="1" dur="2" dur.ppq="6" oct="4" pname="b" stem.dir="down"/>
+                           <beam xml:id="z1t2i1or">
+                              <note xml:id="anl8vq3" dur="8" dur.ppq="1" oct="4" pname="a" stem.dir="up"/>
+                              <note xml:id="b4962he" dur="8" dur.ppq="1" oct="4" pname="g" stem.dir="up"/>
+                           </beam>
+                           <beam xml:id="c1ceje2b">
+                              <note xml:id="dw2aax9" dur="8" dur.ppq="1" oct="4" pname="f" stem.dir="up">
+                                 <accid xml:id="eyk62y3" accid="s"/>
+                              </note>
+                              <note xml:id="fkueo7x" dur="8" dur.ppq="1" oct="4" pname="g" stem.dir="up"/>
+                              <note xml:id="gni5ea7" dur="8" dur.ppq="1" oct="4" pname="a" stem.dir="up"/>
+                              <note xml:id="h1qg8rur" accid.ges="s" dur="8" dur.ppq="1" oct="4" pname="f" stem.dir="up"/>
+                           </beam>
+                        </layer>
+                     </staff>
+                     <staff xml:id="wl3kiuy" n="2">
+                        <layer xml:id="jb2vz2h" n="5">
+                           <choice xml:id="choice-z6r3gc1" resp="#projectstaff-1">
+                              <sic xml:id="sic-w0actb">
+                                 <note xml:id="k1rqz0mg" dots="1" dur="1" dur.ppq="8" oct="3" pname="g"/>
+                              </sic>
+                              <corr xml:id="corr-hxcumy2">
+                                 <note xml:id="note-agguje" dur="1" dur.ppq="8" oct="3" pname="g"/>
+                                 <note xml:id="note-dn6dou1" dur="2" dur.ppq="8" oct="3" pname="d"/>
+                              </corr>
+                           </choice>
+                        </layer>
+                     </staff>
+                  </measure>
+                  <measure xml:id="m1tmmoc9" n="10" right="end">
+                     <staff xml:id="v148zis" n="1">
+                        <layer xml:id="x1105t7v" n="1">
+                           <note xml:id="yus8203" dots="1" dur="1" dur.ppq="12" oct="4" pname="g"/>
+                        </layer>
+                     </staff>
+                     <staff xml:id="w1pbj3kk" n="2">
+                        <layer xml:id="a12phslb" n="5">
+                           <note xml:id="b11dceto" dots="1" dur="1" dur.ppq="12" oct="3" pname="g"/>
+                        </layer>
+                     </staff>
+                     <fermata xml:id="zuljn0j" form="norm" place="above" staff="1" startid="#yus8203"/>
+                     <dir xml:id="dir-6xng6m1" ho="15vu" place="above" staff="2" startho="15vu" tstamp="4.0" type="finis">
+                        <rend xml:id="rend-w1b91c1" halign="right">finis</rend>
+                     </dir>
+                  </measure>
+               </section>
+            </score>
+         </mdiv>
+      </body>
+   </music>
+</mei>
