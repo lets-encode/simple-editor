@@ -3,8 +3,8 @@
 // One sheet slides over the score from the top, with three resting heights: closed (the handle
 // only), strip and full. Dragging the handle covers the score without re-laying it out; once the
 // sheet settles at closed or strip the stage shrinks to what is left, and the score re-lays out
-// once (main.js's ResizeObserver). At full the stage keeps its layout underneath. Holding the
-// facsimile button flips to full until it is released.
+// once (main.js's ResizeObserver). At full the stage keeps its layout underneath. A tap on the
+// handle toggles closed and strip.
 //
 // The view follows the score: the zones of the measures on screen are highlighted (the selection's
 // more strongly), and the view frames them all, or only the selection's focus measure (⚙). The
@@ -39,7 +39,6 @@ export class Facsimile {
     this.available = false;
     /** @type {'closed'|'strip'|'full'} */
     this.rest = 'closed';
-    this.flipping = null;
     this.linked = true;
     this.t = { s: 0.2, x: 0, y: 0 };
     /** @type {{frame: Box, like: number|null, key: string} | null} what the view frames, and the like-for-like scale */
@@ -89,6 +88,7 @@ export class Facsimile {
       return;
     }
     this.rest = rest;
+    this.sheet.dataset.rest = rest;
     const h = this.heights()[rest];
     this.setHeight(h, animate);
     clearTimeout(this.settleTimer);
@@ -103,27 +103,6 @@ export class Facsimile {
   toggle() {
     this.settle(this.rest === 'closed' ? 'strip' : 'closed');
     this.onChange(`facsimile ${this.rest}`);
-  }
-
-  /** The facsimile button: a tap toggles closed and strip; holding it shows the sheet at full. */
-  buttonDown() {
-    clearTimeout(this.holdTimer);
-    this.holdTimer = setTimeout(() => {
-      this.flipping = { back: this.rest };
-      navigator.vibrate?.(12);
-      this.setHeight(this.heights().full, true);
-      this.onChange('facsimile: flipped to full while held');
-    }, this.settings.flipHoldMs);
-  }
-
-  buttonUp(cancelled = false) {
-    clearTimeout(this.holdTimer);
-    if (this.flipping) {
-      const back = this.flipping.back;
-      this.flipping = null;
-      this.setHeight(this.heights()[back], true);
-      this.onChange(`facsimile: back to ${back}`);
-    } else if (!cancelled) this.toggle();
   }
 
   wireHandle() {

@@ -631,7 +631,6 @@ async function loadFixture(key) {
   doc = new MeiDoc(await (await fetch(f.url)).text());
   // Before the first layout, so the score is laid out for the stage the closed sheet leaves.
   fac.load(doc, f.url);
-  bar.refresh();
   reloads.length = 0;
   pending.clear();
   faking = false;
@@ -669,7 +668,6 @@ async function main() {
     },
     status: () => (score.pageCount ? `${score.page}/${score.pageCount}` : ''),
     note: noteCommand,
-    facsimile: { available: () => !!fac?.available, down: () => fac.buttonDown(), up: (c) => fac.buttonUp(c) },
   });
   bindSettingsDialog(settingsDialog, settings, loadFixture);
   await loadFixture(settings.fixture);

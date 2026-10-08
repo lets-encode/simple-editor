@@ -32,7 +32,6 @@ export const DEFAULTS = {
   reloadScope: 'page',
   stripPct: 40,
   facFit: 'screen',
-  flipHoldMs: 250,
 };
 
 const KEY = 'simple-editor-spike-settings';

@@ -33,17 +33,3 @@ export function noteIcon({ dur, pos = 'between' }) {
   return svg;
 }
 
-/** A page with staff lines, for the facsimile button. */
-export function facsimileIcon() {
-  const svg = document.createElementNS(SVG_NS, 'svg');
-  svg.setAttribute('viewBox', '0 0 26 36');
-  svg.setAttribute('aria-hidden', 'true');
-  svg.classList.add('note-icon');
-  const staff = (y) => [0, 2, 4].map((d) => `<line x1="7" x2="20" y1="${y + d}" y2="${y + d}" />`).join('');
-  svg.innerHTML = `
-    <g stroke="currentColor" fill="none" stroke-linecap="round">
-      <path d="M5 4 h12 l5 5 v23 h-17 z" stroke-width="1.5" stroke-linejoin="round" />
-      <g stroke-width="0.9" opacity="0.8">${staff(12)}${staff(21)}</g>
-    </g>`;
-  return svg;
-}

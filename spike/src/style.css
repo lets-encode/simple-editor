@@ -159,7 +159,7 @@ body {
   }
 
   /* More specific than the general rule below, which would otherwise win. Narrow enough for
-     page, zoom, facsimile and ⚙ to share the second row on a 375 px phone. */
+     page, zoom and ⚙ to share the second row on a 375 px phone. */
   #bar .group button {
     min-width: 44px;
   }
@@ -401,7 +401,7 @@ dialog .stats button {
   display: none;
 }
 
-/* A thin handle; its pseudo-element widens the grab area invisibly, mostly over the image. */
+/* A thin handle; its pseudo-element widens the grab area invisibly to about 44 px. */
 #fac-handle {
   position: relative;
   flex: none;
@@ -426,8 +426,15 @@ dialog .stats button {
   position: absolute;
   left: 0;
   right: 0;
-  top: -12px;
-  bottom: -8px;
+  top: -14px;
+  bottom: -14px;
+}
+
+/* Closed, nothing above the handle can be reached (#main clips it, and the screen's top edge
+   belongs to the OS), so the whole extra area goes into the top of the score. */
+#sheet[data-rest='closed'] #fac-handle::before {
+  top: 0;
+  bottom: -28px;
 }
 
 #fac-handle .grip {
@@ -438,12 +445,6 @@ dialog .stats button {
   opacity: 0.6;
 }
 
-#bar button.hold {
-  -webkit-touch-callout: none;
-  user-select: none;
-  -webkit-user-select: none;
-  touch-action: none;
-}
 
 /* A tap on the facsimile selects in the score: the chosen note pulses once. */
 #score g.pulse {
