@@ -62,9 +62,14 @@ export function attachGestures(el, getSettings, h) {
 
   const RECENT_PX = 12;
 
+  // Stepping back towards the start needs `scrubBackPx` more travel than stepping on, so a finger
+  // resting on a step boundary does not flicker between two states (or two pages).
   const scrubSteps = () => {
     const travel = p.axis === 'h' ? p.x - p.ax : p.y - p.ay;
-    return Math.trunc(travel / p.s.scrubStepPx);
+    const steps = Math.trunc(travel / p.s.scrubStepPx);
+    if (!p.steps || Math.abs(steps) >= Math.abs(p.steps)) return steps;
+    const back = Math.trunc((travel + Math.sign(p.steps) * (p.s.scrubBackPx ?? 0)) / p.s.scrubStepPx);
+    return Math.abs(back) < Math.abs(p.steps) ? back : p.steps;
   };
 
   // Tracks the dominant axis of the last RECENT_PX of movement.

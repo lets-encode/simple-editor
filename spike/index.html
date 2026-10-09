@@ -19,6 +19,9 @@
             <div id="box" hidden></div>
             <div id="caret" hidden></div>
             <div id="slots"></div>
+            <!-- The selection continues on an earlier or later page. -->
+            <div id="edge-prev" class="edge" hidden></div>
+            <div id="edge-next" class="edge" hidden></div>
             <div id="hud">
               <span id="hud-gesture"></span>
               <span id="hud-selection"></span>
@@ -66,6 +69,10 @@
         <label>
           Scrub step <output></output> px of travel
           <input type="range" name="scrubStepPx" min="8" max="80" step="2" />
+        </label>
+        <label>
+          Scrub steps back only <output></output> px past a step (hysteresis)
+          <input type="range" name="scrubBackPx" min="0" max="20" step="1" />
         </label>
         <label>
           Scrub turns onto the other axis after <output></output> px across

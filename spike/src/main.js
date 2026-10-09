@@ -1,7 +1,7 @@
 import createVerovioModule from 'verovio/wasm';
 import { VerovioToolkit } from 'verovio/esm';
 import { Score, SCALES, slotRect } from './score.js';
-import { horizontal, vertical, expansion } from './nav.js';
+import { horizontal, vertical, expansion, departure, enterLane, enterSystem } from './nav.js';
 import { attachGestures } from './gestures.js';
 import { createBar } from './bar.js';
 import { FIXTURES, loadSettings, bindSettingsDialog } from './settings.js';
@@ -22,6 +22,8 @@ const mainEl = document.getElementById('main');
 const paneEl = document.getElementById('pane');
 const caretEl = document.getElementById('caret');
 const slotsEl = document.getElementById('slots');
+const edgePrev = document.getElementById('edge-prev');
+const edgeNext = document.getElementById('edge-next');
 
 const settings = loadSettings();
 
@@ -88,13 +90,35 @@ function hud(text, edit = false) {
 function apply(ids = sel.ids) {
   for (const el of scoreEl.querySelectorAll('g.selected')) el.classList.remove('selected');
   for (const id of ids) score.byId.get(id)?.el.classList.add('selected');
+  const away = drawEdges(ids);
+  const where = away ? ` (${ids.size - away} on this page)` : '';
   if (sel.before && sel.cursor) hudSelection.textContent = `before ${score.describe(sel.cursor)}`;
   else if (ids.size === 0) hudSelection.textContent = 'nothing selected';
-  else if (ids.size === 1) hudSelection.textContent = score.describe([...ids][0]);
-  else hudSelection.textContent = `${ids.size} selected${sel.fromDrag ? ' (drag selection)' : ''}`;
+  else if (ids.size === 1) hudSelection.textContent = away ? `1 selected on page ${score.pageOf([...ids][0])}` : score.describe([...ids][0]);
+  else hudSelection.textContent = `${ids.size} selected${where}${sel.fromDrag ? ' (drag selection)' : ''}`;
   drawSlots(ids);
   followSelection();
   updateCaret();
+}
+
+/**
+ * Chevrons at the stage's edges count the selected elements on earlier and later pages.
+ * @returns {number} how many selected elements are off this page
+ */
+function drawEdges(ids) {
+  let before = 0;
+  let after = 0;
+  for (const id of ids) {
+    if (score.byId.has(id)) continue;
+    const p = score.pageOf(id);
+    if (p && p < score.page) before++;
+    else if (p > score.page) after++;
+  }
+  edgePrev.hidden = !before;
+  edgeNext.hidden = !after;
+  edgePrev.textContent = `‹ ${before}`;
+  edgeNext.textContent = `${after} ›`;
+  return before + after;
 }
 
 /** Selected slots are drawn as boxes over their stretch of staff. */
@@ -198,6 +222,7 @@ function entryLift(d) {
   const len = entryLength(c);
   const advance = !c.ip.before && entry.run === c.ip.item.id;
   const { note, moved } = insertNote(doc, { focus: c.focusEl, before: c.ip.before, d, dur: len.dur, dots: len.dots, advance });
+  doc.changed();
   const id = note.getAttribute('xml:id');
   entry.run = id;
   entry.last = len;
@@ -316,45 +341,102 @@ function stepH(state, sign) {
   const it = state.item;
   if (state.before) {
     if (sign > 0) return { item: it };
-    const n = horizontal(score, it, -1);
+    const n = horizontalX(it, -1);
     return n ? { item: n } : null;
   }
   if (sign < 0 && entry.open && barStart(it)) return { item: it, before: true };
-  const n = horizontal(score, it, sign);
+  const n = horizontalX(it, sign);
   if (!n) return null;
   if (sign > 0 && entry.open && n.measure !== it.measure && barStart(n)) return { item: n, before: true };
   return { item: n };
+}
+
+// Navigation carries on across page limits (the page-only ruling is lifted): a single step that
+// finds nothing on the rendered page turns the page and enters the next one, and growing a
+// selection turns to its front.
+
+/** The measure just beyond the rendered page's last (sign +1) or before its first (−1), in document order. */
+function measureBeyondPage(sign) {
+  const ids = doc.measureIds();
+  const edge = sign > 0 ? score.measures.at(-1) : score.measures[0];
+  const i = edge ? ids.indexOf(edge.id) : -1;
+  return i < 0 ? null : (ids[i + sign] ?? null);
+}
+
+/** Renders the page holding `id` if it is not the one on screen. @returns whether the page turned */
+function turnTo(id) {
+  const p = score.pageOf(id);
+  if (!p || p === score.page) return false;
+  flush();
+  if (!score.showPageOf(id)) return false;
+  bar.refreshStatus();
+  return true;
+}
+
+/** The item for an id, turning to its page first if it is not on screen. */
+function itemFor(id) {
+  if (!score.byId.has(id)) turnTo(id);
+  return score.byId.get(id) ?? null;
+}
+
+/** horizontal(), carrying on into the same lane on the next or previous page. */
+function horizontalX(it, sign) {
+  const n = horizontal(score, it, sign);
+  if (n) return n;
+  const from = departure(it);
+  for (let mid = measureBeyondPage(sign); mid; mid = measureBeyondPage(sign)) {
+    if (!turnTo(mid)) return null;
+    const e = enterLane(score, from, sign, mid);
+    if (e) return e;
+  }
+  return null;
+}
+
+/** vertical(), carrying on from the page's top or bottom system into the previous or next page's. */
+function verticalX(it, sign) {
+  const n = vertical(score, it, sign);
+  if (n) return n;
+  const mid = measureBeyondPage(sign);
+  if (!mid) return null;
+  const from = departure(it);
+  if (!turnTo(mid)) return null;
+  return enterSystem(score, from, sign, mid);
 }
 
 const DIR_SIGN = { left: -1, right: 1, up: -1, down: 1 };
 
 function navigate(dir) {
   const cur = sel.cursor && score.byId.get(sel.cursor);
+  // Ruling 7, revised: with nothing selected on this page, start from its edge.
   if (!cur) {
     const items = score.items;
     if (!items.length) return 'no elements on this page';
     selectOnly(DIR_SIGN[dir] > 0 ? items[0] : items[items.length - 1]);
     return 'started from the page edge';
   }
+  const page = score.page;
+  const turned = () => (score.page !== page ? `turned to page ${score.page}` : '');
   if (dir === 'left' || dir === 'right') {
     const st = stepH({ item: cur, before: sel.before }, DIR_SIGN[dir]);
-    if (!st) return 'no neighbour on this page; stayed put';
+    if (!st) return 'no neighbour before the end of the piece; stayed put';
     (st.before ? showBefore : selectOnly)(st.item);
-    return st.before ? 'before the first note of the bar' : '';
+    return [st.before ? 'before the first note of the bar' : '', turned()].filter(Boolean).join(', ');
   }
-  const n = vertical(score, cur, DIR_SIGN[dir]);
-  if (!n) return 'no neighbour on this page; stayed put';
+  const n = verticalX(cur, DIR_SIGN[dir]);
+  if (!n) return 'no neighbour; stayed put';
   selectOnly(n);
-  return '';
+  return turned();
 }
 
+/** Grows the whole selection, wherever it lies (ruling 6), and turns to the growth's front. */
 function grow(dir) {
-  const add = expansion(score, sel.ids, dir);
-  for (const it of add) sel.ids.add(it.id);
-  if (add.length) sel.cursor = add[add.length - 1].id;
+  const { ids, cursor } = expansion(score, sel.ids, dir, sel.cursor);
+  for (const id of ids) sel.ids.add(id);
+  if (cursor) sel.cursor = cursor;
   sel.fromDrag = true;
+  const turned = cursor && turnTo(cursor);
   apply();
-  return add.length ? `added ${add.length}` : 'nothing further to add on this page';
+  return ids.length ? `added ${ids.length}${turned ? `, turned to page ${score.page}` : ''}` : 'nothing further to add';
 }
 
 // A scrub walks along a path of states from where it started. States are built lazily and kept,
@@ -362,24 +444,26 @@ function grow(dir) {
 // shrinks below its size at the start of the scrub.
 let scrub = null;
 
+// Walk states hold ids, not page items, since a scrub may turn the page and come back: showing or
+// stepping from a state turns to its page first.
 function walkState(prev, sign, axis) {
-  if (!prev.item) {
-    const it = sign > 0 ? score.items[0] : score.items.at(-1);
-    return it ? { item: it } : null;
+  const it = prev.id && itemFor(prev.id);
+  if (!it) {
+    const first = sign > 0 ? score.items[0] : score.items.at(-1);
+    return first ? { id: first.id } : null;
   }
-  if (axis === 'h') return stepH(prev, sign);
-  const n = vertical(score, prev.item, sign);
-  return n ? { item: n } : null;
+  const st = axis === 'h' ? stepH({ item: it, before: prev.before }, sign) : { item: verticalX(it, sign) };
+  return st?.item ? { id: st.item.id, before: !!st.before } : null;
 }
 
 const GROW_DIR = { h: { 1: 'right', '-1': 'left' }, v: { 1: 'down', '-1': 'up' } };
 
 function growState(prev, sign, axis) {
-  const add = expansion(score, prev.ids, GROW_DIR[axis][sign]);
+  const { ids: add, cursor } = expansion(score, prev.ids, GROW_DIR[axis][sign], prev.cursor);
   if (!add.length) return null;
   const ids = new Set(prev.ids);
-  for (const it of add) ids.add(it.id);
-  return { ids, cursor: add.at(-1).id };
+  for (const id of add) ids.add(id);
+  return { ids, cursor };
 }
 
 // A turn onto the other axis starts a new segment from the current state; `initial` is the state
@@ -388,7 +472,7 @@ function startScrub(axis) {
   const grow = sel.fromDrag && sel.ids.size > 0;
   const origin = grow
     ? { ids: new Set(sel.ids), cursor: sel.cursor }
-    : { item: (sel.cursor && score.byId.get(sel.cursor)) || null, before: sel.before };
+    : { id: sel.cursor && score.byId.has(sel.cursor) ? sel.cursor : null, before: sel.before };
   const initial = scrub?.initial ?? { grow, state: origin };
   const trail = scrub?.trail ?? [];
   scrub = { axis, grow, paths: { 1: [origin], '-1': [origin] }, shown: 0, initial, trail };
@@ -404,8 +488,12 @@ function showState(grow, state) {
     sel.ids = new Set(state.ids);
     sel.fromDrag = true;
     sel.cursor = state.cursor;
+    if (state.cursor) turnTo(state.cursor);
     apply();
-  } else if (state.item) (state.before ? showBefore : selectOnly)(state.item);
+    return;
+  }
+  const it = state.id && itemFor(state.id);
+  if (it) (state.before ? showBefore : selectOnly)(it);
   else clearSelection();
 }
 
@@ -434,8 +522,8 @@ const segmentText = (axis, reached) => {
 
 function scrubHud(steps, reached, done) {
   const parts = [...scrub.trail.map((t) => segmentText(t.axis, t.reached)), segmentText(scrub.axis, reached)];
-  const edge = reached !== steps ? ' — no further neighbour on this page' : '';
-  hud(`${scrub.grow ? 'grow' : 'walk'} ${parts.join(', ')}${edge}${done ? ' (done)' : ''}`);
+  const edge = reached !== steps ? ' — no further' : '';
+  hud(`${scrub.grow ? 'grow' : 'walk'} ${parts.join(', ')}${edge} · page ${score.page}${done ? ' (done)' : ''}`);
 }
 
 const ARROWS = { left: '←', right: '→', up: '↑', down: '↓' };
@@ -541,6 +629,7 @@ function armIdleReload() {
 
 /** Shows the DOM's current state: ghost notes now and a reload later, or a reload next frame. */
 function showEdits() {
+  doc.changed();
   if (useFake()) {
     const n = ghosts.show(ghostEntries());
     timing = `${n ? `${plural(n, 'ghost')}, reload on pause` : 'no change to draw'} [${modeLabel()}]`;
@@ -660,7 +749,7 @@ function toStage(r) {
 function wireGestures() {
   attachGestures(document.getElementById('work'), () => settings, {
     // The path, not the target: the pane redraws on touch, detaching the element touched.
-    claims: (e) => !e.composedPath().includes(paneEl),
+    claims: (e) => !e.composedPath().some((n) => n === paneEl || n === edgePrev || n === edgeNext),
     onTap(x, y) {
       const it = score.hit(x, y, settings.tapReachPx);
       if (!it) {
@@ -680,21 +769,26 @@ function wireGestures() {
     onSwipe(dir, { dist, ms }) {
       handleDirection(dir, sel.fromDrag && sel.ids.size > 0, `${dist} px, ${ms} ms`);
     },
+    // A box always adds to the selection, on this page or others; only a tap clears it.
     onBox(r, done) {
       const b = toStage(r);
       Object.assign(boxEl.style, { left: `${b.left}px`, top: `${b.top}px`, width: `${b.width}px`, height: `${b.height}px` });
       boxEl.hidden = done;
-      const ids = new Set(score.inRect(r).map((it) => it.id));
+      const boxed = score.inRect(r).map((it) => it.id);
+      const keep = sel.ids;
+      const ids = new Set([...keep, ...boxed]);
+      const adding = keep.size ? `, adding to ${keep.size} selected` : '';
       if (!done) {
         apply(ids);
-        hud(`drag box — ${ids.size} inside`);
+        hud(`drag box — ${boxed.length} inside${adding}`);
         return;
       }
       sel.ids = ids;
       sel.fromDrag = ids.size > 0;
-      sel.cursor = ids.size ? [...ids].at(-1) : null;
+      sel.cursor = boxed.length ? boxed.at(-1) : keep.size ? sel.cursor : null;
+      sel.before = false;
       apply();
-      hud(`drag box — selected ${ids.size}`);
+      hud(`drag box — selected ${boxed.length}${adding}`);
     },
     onBoxCancel() {
       boxEl.hidden = true;
@@ -756,6 +850,17 @@ function wireGestures() {
       hud(`ignored: ${reason}`);
     },
   });
+
+  // A chevron turns to the nearest page holding more of the selection, keeping the selection.
+  for (const [chev, sign] of [[edgePrev, -1], [edgeNext, 1]]) {
+    chev.addEventListener('click', () => {
+      const pages = [...sel.ids].map((id) => score.pageOf(id)).filter((p) => p && Math.sign(p - score.page) === sign);
+      if (!pages.length) return;
+      const target = sign < 0 ? Math.max(...pages) : Math.min(...pages);
+      turnPage(target - score.page);
+      hud(`chevron — turned to page ${score.page}`);
+    });
+  }
 
   window.addEventListener('keydown', (e) => {
     if (settingsDialog.open) return;

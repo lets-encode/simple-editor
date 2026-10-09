@@ -10,6 +10,8 @@ export class MeiDoc {
     /** @type {Map<string, Element>} */
     this.byId = new Map();
     this.ephemeral = 0;
+    /** incremented on every edit, so caches built from the DOM (the time index) know they are stale */
+    this.version = 0;
     this.assignIds();
   }
 
@@ -41,6 +43,11 @@ export class MeiDoc {
     el.setAttributeNS(XML_NS, 'xml:id', id);
     this.byId.set(id, el);
     return id;
+  }
+
+  /** Marks the DOM as edited. */
+  changed() {
+    this.version++;
   }
 
   get(id) {

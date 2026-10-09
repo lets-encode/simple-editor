@@ -21,6 +21,7 @@ export const DEFAULTS = {
   holdMs: 300,
   axisPx: 20,
   scrubStepPx: 24,
+  scrubBackPx: 6,
   turnPx: 30,
   swipeMinPx: 35,
   slopPx: 10,

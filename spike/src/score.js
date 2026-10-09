@@ -24,7 +24,6 @@ export const SCALES = [25, 30, 35, 40, 45, 50, 60, 70, 80, 100, 120];
  * @property {DOMRect} rect   client rect of the notehead (notes) or the element (everything else)
  * @property {number} cx
  * @property {number} cy
- * @property {number} t       page-local onset: measure index × 1000 + quarters into the measure
  * @property {boolean} slot   an empty layer, standing in for its (missing) events
  */
 
@@ -67,13 +66,15 @@ export class Score {
 
   afterFullLayout(keepId) {
     this.pageCount = this.tk.getPageCount();
-    this.onsets = null;
     const page = keepId ? this.tk.getPageWithElement(keepId) : 0;
     this.page = page > 0 ? page : Math.min(Math.max(this.page, 1), this.pageCount);
     this.ranges = [];
+    /** @type {Map<string, number>} each measure's page under the last full layout (page-only loads keep it) */
+    this.pageByMeasure = new Map();
     for (const id of this.doc.measureIds()) {
       const p = this.tk.getPageWithElement(id);
       if (p < 1) continue;
+      this.pageByMeasure.set(id, p);
       this.ranges[p - 1] ??= [id, id];
       this.ranges[p - 1][1] = id;
     }
@@ -115,7 +116,6 @@ export class Score {
     this.tk.setOptions({ ...this.options(), breaks: 'encoded' });
     this.tk.select({ start: src.start, end: src.end });
     this.tk.loadData(src.mei);
-    this.onsets = null;
     this.selected = this.tk.getPageCount() === 1;
     return this.selected;
   }
@@ -138,17 +138,6 @@ export class Score {
     this.render();
     const ms = (a, b) => Math.round(b - a);
     return { ser: ms(t0, t1), load: ms(t1, t2), render: ms(t2, performance.now()), scope: how };
-  }
-
-  /** First-occurrence onsets (in quarter notes) of notes, rests and measures, from Verovio's timemap. */
-  readOnsets() {
-    /** @type {Map<string, number>} */
-    this.onsets = new Map();
-    for (const e of this.tk.renderToTimemap({ includeMeasures: true, includeRests: true })) {
-      for (const id of [...(e.on ?? []), ...(e.restsOn ?? []), ...(e.measureOn ? [e.measureOn] : [])]) {
-        if (!this.onsets.has(id)) this.onsets.set(id, e.qstamp);
-      }
-    }
   }
 
   options() {
@@ -191,6 +180,29 @@ export class Score {
         .filter(Boolean);
     }
     this.index();
+  }
+
+  /** The page holding an element (or measure) of the DOM, or 0 if it is not laid out. */
+  pageOf(id) {
+    const el = this.doc?.get(id);
+    const m = el?.localName === 'measure' ? el : el?.closest('measure');
+    return (m && this.pageByMeasure.get(m.getAttribute('xml:id'))) || 0;
+  }
+
+  /**
+   * Renders the page holding `id`, for navigation that carries on across a page limit. While the
+   * toolkit holds a page-only load (after an edit), it lays out the whole file once instead of
+   * selecting the next page: later turns then only render, so a scrub going back and forth over
+   * the limit does not reload each time.
+   * @returns {boolean} whether anything was rendered
+   */
+  showPageOf(id) {
+    const p = this.pageOf(id);
+    if (!p || p === this.page) return false;
+    if (this.selected) this.fullLayout(id, this.doc.serialize());
+    else this.page = p;
+    this.render();
+    return true;
   }
 
   turnPage(delta) {
@@ -246,37 +258,6 @@ export class Score {
       };
       this.items.push(item);
       this.byId.set(item.id, item);
-    }
-    this.timed = false;
-  }
-
-  /**
-   * Sets `t`, a page-local score time: measure index × 1000 + onset within the measure in quarters.
-   * Measuring from the measure's own onset keeps `t` in page order even when repeats are expanded.
-   * Elements the timemap omits (clefs) take the time of the next timed element in their lane.
-   * Computed on demand, since the timemap costs a full timing pass after every edit.
-   */
-  assignTimes() {
-    if (this.timed) return;
-    this.timed = true;
-    if (!this.onsets) this.readOnsets();
-    for (const it of this.items) {
-      const q = this.onsets.get(it.id);
-      const mq = this.onsets.get(it.measure.id);
-      it.t = q !== undefined && mq !== undefined ? it.measureIndex * 1000 + (q - mq) : null;
-    }
-    const lanes = new Map();
-    for (const it of this.items) {
-      const k = `${it.measureIndex}/${it.staffN}/${it.layerN}`;
-      if (!lanes.has(k)) lanes.set(k, []);
-      lanes.get(k).push(it);
-    }
-    for (const lane of lanes.values()) {
-      let next = null;
-      for (let i = lane.length - 1; i >= 0; i--) {
-        if (lane[i].t === null) lane[i].t = next ?? lane[i].measureIndex * 1000 + 999;
-        else next = lane[i].t;
-      }
     }
   }
 

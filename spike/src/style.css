@@ -587,6 +587,38 @@ dialog .stats button {
   pointer-events: none;
 }
 
+/* Chevrons at the stage's edges: this many selected elements lie on earlier or later pages; a tap turns there. */
+.edge {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 6px 7px;
+  border-radius: 999px;
+  background: var(--layer-1);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  opacity: 0.85;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+/* A 44 px target around the small pill. */
+.edge::after {
+  content: '';
+  position: absolute;
+  inset: -12px -8px;
+}
+.edge[hidden] {
+  display: none;
+}
+#edge-prev {
+  left: 3px;
+}
+#edge-next {
+  right: 3px;
+}
+
 #slots {
   position: absolute;
   inset: 0;
