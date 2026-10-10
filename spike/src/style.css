@@ -243,6 +243,12 @@ dialog #build {
   font-size: 12px;
 }
 
+dialog #update {
+  display: block;
+  min-height: 40px;
+  margin: 0 0 12px;
+}
+
 dialog h2 {
   margin: 0 0 12px;
   font-size: 16px;

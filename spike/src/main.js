@@ -1056,6 +1056,25 @@ let editsOk = true;
 
 document.getElementById('build').textContent = `Build ${__BUILD__}`;
 
+// Drops the offline copy and loads the latest build; edits and settings stay.
+document.getElementById('update').addEventListener('click', async () => {
+  try {
+    // The offline copy goes too, so without a connection the app could not start again: check first.
+    await fetch('./sw.js', { cache: 'no-store' });
+  } catch {
+    alert('No connection: updating now would leave the app unable to start. Try again online.');
+    return;
+  }
+  saveNow();
+  try {
+    for (const r of (await navigator.serviceWorker?.getRegistrations()) ?? []) await r.unregister();
+    for (const k of await caches.keys()) await caches.delete(k);
+  } catch {
+    // Reload anyway; whatever could not be cleared is replaced at the next update.
+  }
+  location.reload();
+});
+
 const editsState = document.getElementById('edits-state');
 function showKept() {
   editsState.textContent = !editsOk ? 'not kept (storage refused)' : loadEdits(fixtureKey) ? 'edited copy kept' : 'original';
