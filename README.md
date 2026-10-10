@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="simple-editor.svg" alt="simple editor" width="364" height="56">
+  <img src="simple-editor.svg" alt="simple editor" width="384" height="76">
 </p>
 
 <p align="center"><em>a simple editor that hides the MEI</em></p>

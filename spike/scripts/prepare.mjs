@@ -127,9 +127,8 @@ writeFileSync(
   pre { padding: .6rem .8rem; overflow-x: auto; }
   pre code { padding: 0; }
   li { margin: .25rem 0; }
-  /* The logo's ink is dark: give it a light plate so it reads in dark mode too. */
   p[align] { text-align: center; }
-  p[align] img { max-width: 100%; height: auto; background: #fff; padding: 10px 14px; border-radius: 8px; box-sizing: border-box; }
+  p[align] img { max-width: 100%; height: auto; }
   .back { font-size: .9rem; color: var(--quiet); }
 </style>
 </head>
