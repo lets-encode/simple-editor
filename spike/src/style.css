@@ -231,6 +231,12 @@ dialog {
   padding: 16px;
 }
 
+dialog #about {
+  display: block;
+  padding: 8px 0 12px;
+  font-size: 15px;
+}
+
 dialog h2 {
   margin: 0 0 12px;
   font-size: 16px;

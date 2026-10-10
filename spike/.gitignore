@@ -2,3 +2,5 @@ node_modules/
 dist/
 public/fixtures/
 public/*.png
+public/about.html
+public/simple-editor.svg
