@@ -12,6 +12,10 @@ export class MeiDoc {
     this.ephemeral = 0;
     /** incremented on every edit, so caches built from the DOM (the time index) know they are stale */
     this.version = 0;
+    /** called after every edit; the app uses it to keep the edited copy */
+    this.onChanged = null;
+    // A saved copy carries its ephemeral ids; new ones must not collide with them.
+    for (const m of text.matchAll(/xml:id="eph-[A-Za-z0-9]+-(\d+)"/g)) this.ephemeral = Math.max(this.ephemeral, +m[1]);
     this.assignIds();
   }
 
@@ -48,6 +52,7 @@ export class MeiDoc {
   /** Marks the DOM as edited. */
   changed() {
     this.version++;
+    this.onChanged?.();
   }
 
   get(id) {

@@ -1,11 +1,13 @@
 // Tunable gesture thresholds, kept per browser in localStorage.
 
-import chopin from '../fixtures/Chopin_Mazurka_Op6_No1.mei?url';
-import beethoven from '../fixtures/Beethoven_WoOAnh5_Nr1_1-Breitkopf.mei?url';
-// From the repo's fixtures/ (served through Vite's fs.allow); facsimile images resolve against these URLs.
-import baumann from '../../fixtures/demo/Baumann-Ludwig_Mondnacht-am-Meer.mei?url';
-import esperoFacs from '../../fixtures/le/la-espero/piece-01/score@1dd5630.mei?url';
-import esperoSetup from '../../fixtures/le/la-espero/piece-01/score@ec3585b.mei?url';
+// Staged by scripts/prepare.mjs into public/fixtures/ with their folder structure intact, so facsimile
+// images resolve against these URLs (relative paths in `<graphic target>`) in dev, build and offline.
+const F = (path) => `${import.meta.env.BASE_URL}fixtures/${path}`;
+const chopin = F('Chopin_Mazurka_Op6_No1.mei');
+const beethoven = F('Beethoven_WoOAnh5_Nr1_1-Breitkopf.mei');
+const baumann = F('demo/Baumann-Ludwig_Mondnacht-am-Meer.mei');
+const esperoFacs = F('le/la-espero/piece-01/score@1dd5630.mei');
+const esperoSetup = F('le/la-espero/piece-01/score@ec3585b.mei');
 
 export const FIXTURES = [
   { key: 'chopin', label: 'Chopin, Mazurka op. 6 no. 1', url: chopin },
@@ -65,6 +67,35 @@ function save(s) {
     localStorage.setItem(KEY, JSON.stringify(s));
   } catch {
     // Storage unavailable (private mode); settings last for this page load.
+  }
+}
+
+const EDITS = 'simple-editor-spike-edits:';
+
+/** The edited copy of a fixture kept in this browser, or null. */
+export function loadEdits(key) {
+  try {
+    return localStorage.getItem(EDITS + key);
+  } catch {
+    return null;
+  }
+}
+
+/** Keeps `text` as the edited copy of a fixture; returns false when storage refuses it. */
+export function saveEdits(key, text) {
+  try {
+    localStorage.setItem(EDITS + key, text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function discardEdits(key) {
+  try {
+    localStorage.removeItem(EDITS + key);
+  } catch {
+    // nothing kept
   }
 }
 

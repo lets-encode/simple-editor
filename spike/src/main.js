@@ -4,7 +4,7 @@ import { Score, SCALES, slotRect } from './score.js';
 import { horizontal, vertical, expansion, departure, enterLane, enterSystem } from './nav.js';
 import { attachGestures } from './gestures.js';
 import { createBar } from './bar.js';
-import { FIXTURES, loadSettings, bindSettingsDialog } from './settings.js';
+import { FIXTURES, loadSettings, bindSettingsDialog, loadEdits, saveEdits, discardEdits } from './settings.js';
 import { MeiDoc } from './mei.js';
 import { setDurationSteps, durationCarrier, snapshot, restore } from './edit.js';
 import { Ghosts, harvestGlyphs, baseOf, staffLines } from './ghost.js';
@@ -1050,9 +1050,60 @@ document.getElementById('reload-stats-reset').addEventListener('click', () => {
   showStats();
 });
 
-async function loadFixture(key) {
+let fixtureKey = null;
+let saveTimer = null;
+let editsOk = true;
+
+const editsState = document.getElementById('edits-state');
+function showKept() {
+  editsState.textContent = !editsOk ? 'not kept (storage refused)' : loadEdits(fixtureKey) ? 'edited copy kept' : 'original';
+}
+
+function saveNow() {
+  clearTimeout(saveTimer);
+  saveTimer = null;
+  if (!doc) return;
+  editsOk = saveEdits(fixtureKey, doc.serialize());
+  showKept();
+}
+
+// Edits are kept shortly after they settle, and at once when the page is hidden or closed.
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveNow, 600);
+}
+addEventListener('pagehide', () => saveTimer && saveNow());
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && saveTimer) saveNow();
+});
+
+document.getElementById('edits-revert').addEventListener('click', () => {
+  if (!confirm('Discard all edits to this score and start again from the original?')) return;
+  clearTimeout(saveTimer);
+  saveTimer = null;
+  discardEdits(fixtureKey);
+  editsOk = true;
+  loadFixture(fixtureKey, true);
+});
+
+async function loadFixture(key, original = false) {
+  // Edits to the score being left must be kept before the next one replaces it.
+  if (saveTimer && key !== fixtureKey) saveNow();
   const f = FIXTURES.find((x) => x.key === key) ?? FIXTURES[0];
-  doc = new MeiDoc(await (await fetch(f.url)).text());
+  fixtureKey = f.key;
+  const kept = original ? null : loadEdits(f.key);
+  let text = kept;
+  if (text) {
+    try {
+      doc = new MeiDoc(text);
+    } catch {
+      discardEdits(f.key);
+      text = null;
+    }
+  }
+  if (!text) doc = new MeiDoc(await (await fetch(f.url)).text());
+  doc.onChanged = scheduleSave;
+  showKept();
   entry.run = null;
   entry.last = null;
   // Before the first layout, so the score is laid out for the stage the closed sheet leaves.
@@ -1069,7 +1120,7 @@ async function loadFixture(key) {
   initialLoadMs = t.ser + t.load + t.render;
   clearSelection();
   bar.refreshStatus();
-  hud(f.label);
+  hud(text ? `${f.label} (your edited copy)` : f.label);
 }
 
 async function main() {
@@ -1137,3 +1188,8 @@ async function main() {
 }
 
 main();
+
+// Offline: the service worker precaches the whole build (see vite.config.js). Production builds only.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}

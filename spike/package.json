@@ -6,8 +6,9 @@
   "type": "module",
   "license": "AGPL-3.0-only",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "prepare-fixtures": "node scripts/prepare.mjs",
+    "dev": "node scripts/prepare.mjs && vite",
+    "build": "node scripts/prepare.mjs && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
