@@ -14,6 +14,20 @@
 // Two fingers: their midpoint flicks and scrubs as one finger does, unless one finger holds still
 // while the other slides sideways (a one-sided slide, for accidentals): that is told apart by each
 // finger's own movement since touchdown, before the midpoint has gone far enough to fix an axis.
+//
+// Two-finger sessions (2026-10-10, an experiment): no mode locks while fingers stay on the glass.
+// A session lasts until both fingers are up and is made of segments, each building on the last:
+//   - a scrub turns onto the other axis as a one-finger scrub does (a new segment);
+//   - both fingers resting still for `twoRestMs` closes a segment, and the next movement is
+//     classified afresh (scrub, or one-sided slide), starting at once without a flick window;
+//   - lifting one finger closes the segment and arms the dots tap; putting it back starts a new one.
+// Only the session's first segment can be a flick. With `twoModeLock` set, none of this applies:
+// a two-finger scrub keeps its axis, rests do nothing, and dots arm only from a still hold.
+//
+// A two-finger hold (N11, dots): both fingers still for `dotHoldMs`, then one lifts. While the other
+// stays down and still, a quick tap anywhere (within `dotTapMs` of the lift or of the previous
+// tap) is a hold-tap; each one cycles the dots. A re-placed finger
+// that slides instead starts an ordinary two-finger gesture (a one-sided slide, say).
 
 /**
  * @typedef {'h'|'v'} Axis
@@ -47,6 +61,16 @@
  * @property {(mover: 'left'|'right', out: number) => void} onSideEnd
  */
 
+/**
+ * Two-finger hold handlers (dots).
+ * @typedef {object} HoldHandlers
+ * @property {() => void} onHoldArmed   one finger lifted from a still two-finger hold
+ * @property {() => void} onHoldTap     a finger tapped while the other held
+ * @property {() => void} onHoldEnd     the held finger lifted or moved, or the window passed
+ * @property {(reason: string) => void} onHoldMiss  what looked like an attempt did not count, and why
+ * @property {() => void} onTwoAllUp   the last finger of a two-finger session lifted
+ */
+
 /** @param {HTMLElement} el @param {() => object} getSettings @param {GestureHandlers} h */
 export function attachGestures(el, getSettings, h) {
   const down = new Set();
@@ -55,6 +79,36 @@ export function attachGestures(el, getSettings, h) {
   let p = null;
   let two = null;
   let blocked = false;
+  // An armed two-finger hold: the finger still down, where the lifted one was, and until when a tap counts.
+  let hold = null;
+  // The last hold that ran out, so a tap just too late can say so.
+  let expired = null;
+  const TAP_MAX_MS = 350;
+  const miss = (reason) => h.onHoldMiss?.(reason);
+
+  const endHold = () => {
+    if (!hold) return;
+    clearTimeout(hold.timer);
+    hold = null;
+    h.onHoldEnd?.();
+  };
+
+  const armHold = (anchor, tapper, now, s, announce = false) => {
+    if (announce) h.onHoldArmed?.();
+    clearTimeout(hold?.timer);
+    const a = pts.get(anchor);
+    hold = { anchor, ax: a.x, ay: a.y, tx: tapper.x, ty: tapper.y, at: now, until: now + s.dotTapMs, s };
+    hold.timer = setTimeout(() => {
+      expired = { anchor, tx: hold.tx, ty: hold.ty, at: hold.at };
+      endHold();
+    }, s.dotTapMs);
+  };
+
+  /** How far each finger of the two-finger gesture has moved since it touched down, at most. */
+  const drift = (t) => Math.max(...t.ids.map((id, i) => {
+    const q = pts.get(id);
+    return q ? Math.hypot(q.x - t.p0[i].x, q.y - t.p0[i].y) : 0;
+  }));
 
   const stopTimers = () => {
     clearTimeout(p.timer);
@@ -161,6 +215,13 @@ export function attachGestures(el, getSettings, h) {
 
   el.addEventListener('pointermove', (e) => {
     if (pts.has(e.pointerId)) pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (hold && e.pointerId === hold.anchor) {
+      const d = Math.hypot(e.clientX - hold.ax, e.clientY - hold.ay);
+      if (d > hold.s.dotStillPx) {
+        miss(`the holding finger moved ${Math.round(d)} px (allowed ${hold.s.dotStillPx})`);
+        endHold();
+      }
+    }
     if (two) return moveTwo(e);
     if (!p || e.pointerId !== p.id) return;
     p.x = e.clientX;
@@ -191,9 +252,13 @@ export function attachGestures(el, getSettings, h) {
   });
 
   const release = (e) => {
+    if (hold && e.pointerId === hold.anchor) endHold();
     down.delete(e.pointerId);
     pts.delete(e.pointerId);
-    if (down.size === 0) blocked = false;
+    if (down.size === 0) {
+      if (blocked) h.onTwoAllUp?.();
+      blocked = false;
+    }
   };
 
   const end = (e) => {
@@ -243,8 +308,19 @@ export function attachGestures(el, getSettings, h) {
     const s = getSettings();
     two = { ids: [...down], t0: e.timeStamp, moved: false, axis: null, mode: 'pending', steps: 0, s };
     two.p0 = two.ids.map((id) => ({ ...pts.get(id) }));
+    // The lifted finger coming back near where it lifted, while the hold is armed: maybe a hold-tap.
+    // Where the tap lands does not matter: nothing else uses a tap while a finger holds.
+    if (hold && two.ids.includes(hold.anchor) && e.timeStamp <= hold.until) {
+      clearTimeout(hold.timer);
+      two.tapper = e.pointerId;
+    } else {
+      if (expired && two.ids.includes(expired.anchor)) miss(`the tap came ${Math.round(e.timeStamp - expired.at)} ms after the lift (window ${s.dotTapMs})`);
+      endHold();
+    }
+    expired = null;
     const m = midpoint();
-    Object.assign(two, { x0: m.x, y0: m.y, x: m.x, y: m.y });
+    Object.assign(two, { x0: m.x, y0: m.y, x: m.x, y: m.y, rx: m.x, ry: m.y, recent: null, rested: false });
+    two.restRef = two.p0.map((q) => ({ ...q }));
     two.timer = setTimeout(() => {
       if (two && !two.dead && two.axis && two.mode === 'pending') startTwoScrub();
     }, s.swipeWindowMs);
@@ -253,6 +329,7 @@ export function attachGestures(el, getSettings, h) {
 
   function cancelTwo(reason) {
     clearTimeout(two.timer);
+    clearTimeout(two.restTimer);
     two.dead = true;
     h.onTwoCancel(reason);
   }
@@ -261,6 +338,58 @@ export function attachGestures(el, getSettings, h) {
     const travel = two.axis === 'h' ? two.x - two.x0 : two.y - two.y0;
     return Math.trunc(travel / two.s.twoStepPx);
   };
+
+  /** Closes the open scrub or one-sided slide, keeping its result. */
+  function closeSegment() {
+    if (two.mode === 'scrub') h.onTwoScrubEnd(two.steps);
+    else if (two.mode === 'side') h.onSideEnd(two.side.mover, sideOut());
+  }
+
+  /** After a rest: the next movement is classified afresh, from where the fingers are now. */
+  function reopen() {
+    closeSegment();
+    two.p0 = two.ids.map((id) => ({ ...pts.get(id) }));
+    const m = midpoint();
+    Object.assign(two, { mode: 'pending', axis: null, moved: false, steps: 0, side: null, x0: m.x, y0: m.y, x: m.x, y: m.y, rx: m.x, ry: m.y, recent: null, rested: true });
+    navigator.vibrate?.(4);
+  }
+
+  /** Both fingers still for `twoRestMs` closes the open segment. */
+  function trackRest() {
+    if (two.s.twoModeLock) return;
+    const REST_PX = 4;
+    const far = two.ids.some((id, i) => {
+      const q = pts.get(id);
+      return q && Math.hypot(q.x - two.restRef[i].x, q.y - two.restRef[i].y) > REST_PX;
+    });
+    if (!far && two.restTimer) return;
+    two.restRef = two.ids.map((id) => ({ ...pts.get(id) }));
+    clearTimeout(two.restTimer);
+    two.restTimer = setTimeout(() => {
+      if (two && !two.dead && (two.mode === 'scrub' || two.mode === 'side') && two.s.twoRestMs) reopen();
+    }, two.s.twoRestMs || 1e9);
+  }
+
+  /** A two-finger scrub turns onto the other axis as a one-finger scrub does, as a new segment. */
+  function maybeTurnTwo() {
+    if (two.s.twoModeLock) return;
+    const rx = two.x - two.rx;
+    const ry = two.y - two.ry;
+    if (Math.hypot(rx, ry) >= RECENT_PX) {
+      two.recent = Math.abs(rx) >= Math.abs(ry) ? 'h' : 'v';
+      two.rx = two.x;
+      two.ry = two.y;
+    }
+    const across = two.axis === 'h' ? two.y - two.y0 : two.x - two.x0;
+    if (!two.recent || two.recent === two.axis || Math.abs(across) < two.s.turnPx) return;
+    h.onTwoScrubEnd(two.steps);
+    // Along the old axis the new segment starts here; across it keeps its start, so the travel
+    // already made counts as steps.
+    if (two.axis === 'h') two.x0 = two.x;
+    else two.y0 = two.y;
+    two.axis = two.recent;
+    startTwoScrub();
+  }
 
   function updateTwoScrub() {
     const steps = twoSteps();
@@ -307,6 +436,7 @@ export function attachGestures(el, getSettings, h) {
 
   function moveTwo(e) {
     if (two.dead || !two.ids.includes(e.pointerId)) return;
+    trackRest();
     if (two.mode === 'side') return h.onSide(two.side.mover, sideOut());
     if (two.mode === 'pending' && !two.axis && maybeSide()) return;
     const m = midpoint();
@@ -323,22 +453,53 @@ export function attachGestures(el, getSettings, h) {
       if (dist < Math.max(two.s.axisPx, two.s.slopPx)) return;
       two.axis = Math.abs(dx) >= Math.abs(dy) ? 'h' : 'v';
     }
-    if (two.mode === 'pending' && e.timeStamp - two.t0 >= two.s.swipeWindowMs) startTwoScrub();
-    else if (two.mode === 'scrub') updateTwoScrub();
+    if (two.mode === 'pending' && (two.rested || e.timeStamp - two.t0 >= two.s.swipeWindowMs)) startTwoScrub();
+    else if (two.mode === 'scrub') {
+      maybeTurnTwo();
+      updateTwoScrub();
+    }
   }
 
   function endTwo(e) {
     const t = two;
     two = null;
     clearTimeout(t.timer);
+    clearTimeout(t.restTimer);
     if (t.dead) return;
-    if (t.mode === 'scrub') return h.onTwoScrubEnd(t.steps);
-    if (t.mode === 'side') {
-      two = t;
-      const out = sideOut();
-      two = null;
-      return h.onSideEnd(t.side.mover, out);
+    const other = t.ids.find((id) => id !== e.pointerId);
+    const lifted = pts.get(e.pointerId) ?? { x: e.clientX, y: e.clientY };
+    // Each finger's own drift, not the midpoint: a finger leaving the glass often shifts its
+    // contact point by 10–30 px as it lifts.
+    const moved = drift(t);
+    if (t.mode === 'pending' && down.has(other) && h.onHoldArmed && t.s.dotTapMs) {
+      const ms = Math.round(e.timeStamp - t.t0);
+      const still = moved <= t.s.dotStillPx;
+      if (t.tapper === e.pointerId) {
+        // A quick still tap of the returning finger: cycle, and stay armed for another.
+        if (still && ms <= TAP_MAX_MS && !t.rested) {
+          h.onHoldTap?.();
+          return armHold(other, lifted, e.timeStamp, t.s);
+        }
+        miss(still ? `the tap lasted ${ms} ms (at most ${TAP_MAX_MS})` : `a finger moved ${Math.round(moved)} px during the tap (allowed ${t.s.dotStillPx})`);
+      } else if (!t.tapper) {
+        // One finger lifting from a still hold arms it.
+        if (still && ms >= t.s.dotHoldMs) return armHold(other, lifted, e.timeStamp, t.s, true);
+        if (moved < t.s.swipeMinPx) {
+          miss(still ? `two fingers held only ${ms} ms before one lifted (needs ${t.s.dotHoldMs})` : `a finger moved ${Math.round(moved)} px while holding (allowed ${t.s.dotStillPx})`);
+          return;
+        }
+      }
     }
+    if (t.tapper) endHold();
+    // Whatever the segment was, a finger still down can tap for dots next, or start a new segment.
+    const rearm = () => !t.s.twoModeLock && down.has(other) && t.s.dotTapMs && armHold(other, lifted, e.timeStamp, t.s);
+    if (t.mode === 'scrub' || t.mode === 'side') {
+      two = t;
+      closeSegment();
+      two = null;
+      return rearm();
+    }
+    if (t.rested) return rearm();
     const dx = t.x - t.x0;
     const dy = t.y - t.y0;
     const dist = Math.hypot(dx, dy);
@@ -349,5 +510,6 @@ export function attachGestures(el, getSettings, h) {
     if (Math.max(ax, ay) < 1.5 * Math.min(ax, ay)) return h.onTwoCancel('diagonal two-finger swipe');
     const dir = ax > ay ? (dx < 0 ? 'left' : 'right') : dy < 0 ? 'up' : 'down';
     h.onTwoSwipe(dir, { dist: Math.round(dist), ms, speed: dist / ms });
+    rearm();
   }
 }

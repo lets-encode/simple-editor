@@ -151,40 +151,105 @@ function scopeOf(tl, notes, stop) {
   return scope;
 }
 
+const attrList = (el) => [...el.attributes].map((a) => [a.namespaceURI, a.name, a.value]);
+
+function setAttrList(el, list) {
+  const now = attrList(el);
+  if (now.length === list.length && now.every((a, i) => a[1] === list[i][1] && a[2] === list[i][2])) return;
+  for (const a of [...el.attributes]) el.removeAttributeNS(a.namespaceURI, a.localName);
+  for (const [ns, name, value] of list) el.setAttributeNS(ns, name, value);
+}
+
+/**
+ * Records one note exactly as it is (its attributes in order, its <accid> child as the same node
+ * with its indentation and attributes), and returns a function that puts it back.
+ */
+function noteSnapshot(n) {
+  const child = accidChild(n);
+  const ws = child?.previousSibling?.nodeType === Node.TEXT_NODE && !child.previousSibling.textContent.trim() ? child.previousSibling : null;
+  const x = { attrs: attrList(n), child, childAttrs: child && attrList(child), ws, next: child?.nextSibling ?? null };
+  return () => {
+    setAttrList(n, x.attrs);
+    const now = accidChild(n);
+    if (now && now !== x.child) removeWithWhitespace(now);
+    if (x.child && x.child.parentNode !== n) {
+      if (x.ws) n.insertBefore(x.ws, x.next);
+      n.insertBefore(x.child, x.next);
+    }
+    if (x.child) setAttrList(x.child, x.childAttrs);
+  };
+}
+
 /**
  * Records, node for node, what an accidental on `notes` can change, so a gesture that tries
- * accidentals out can put the text back exactly as it was: each note's attributes in order, and
- * its <accid> child (the same node, with its indentation and attributes).
+ * accidentals out can put the text back exactly as it was.
  * @returns {{restore: () => void}}
  */
 export function accidSnapshot(meiDoc, notes) {
-  const attrs = (el) => [...el.attributes].map((a) => [a.namespaceURI, a.name, a.value]);
-  const setAttrs = (el, list) => {
-    const now = attrs(el);
-    if (now.length === list.length && now.every((a, i) => a[1] === list[i][1] && a[2] === list[i][2])) return;
-    for (const a of [...el.attributes]) el.removeAttributeNS(a.namespaceURI, a.localName);
-    for (const [ns, name, value] of list) el.setAttributeNS(ns, name, value);
-  };
-  const saved = [...scopeOf(timeline(meiDoc), notes, false)].map((n) => {
-    const child = accidChild(n);
-    const ws = child?.previousSibling?.nodeType === Node.TEXT_NODE && !child.previousSibling.textContent.trim() ? child.previousSibling : null;
-    return { n, attrs: attrs(n), child, childAttrs: child && attrs(child), ws, next: child?.nextSibling ?? null };
-  });
+  const saved = [...scopeOf(timeline(meiDoc), notes, false)].map(noteSnapshot);
   return {
     restore() {
-      for (const x of saved) {
-        setAttrs(x.n, x.attrs);
-        const now = accidChild(x.n);
-        if (now && now !== x.child) removeWithWhitespace(now);
-        if (x.child && x.child.parentNode !== x.n) {
-          if (x.ws) x.n.insertBefore(x.ws, x.next);
-          x.n.insertBefore(x.child, x.next);
-        }
-        if (x.child) setAttrs(x.child, x.childAttrs);
-      }
+      for (const put of saved) put();
       meiDoc.changed();
     },
   };
+}
+
+/**
+ * Remembers the original state of every note a sequence of pitch moves touches, so a scrub can put
+ * them all back exactly before applying its current step count.
+ */
+export class PitchKeeper {
+  constructor(meiDoc) {
+    this.meiDoc = meiDoc;
+    /** @type {Map<Element, () => void>} */
+    this.saved = new Map();
+  }
+
+  record(notes) {
+    for (const n of notes) if (!this.saved.has(n)) this.saved.set(n, noteSnapshot(n));
+  }
+
+  restore() {
+    for (const put of this.saved.values()) put();
+    this.meiDoc.changed();
+  }
+}
+
+const STEP_NAMES = 'cdefgab';
+
+/**
+ * Moves notes `delta` staff positions (±7 is an octave), keeping their written accidentals: a
+ * pitch step changes where the note sits, never what is printed in front of it (N8). Then brings
+ * @accid.ges up to date for the notes and for later notes in the bar that followed their old pitch
+ * or follow their new one. A note that would leave octaves 0–9 stays put.
+ * @param {PitchKeeper|null} keeper records each note before it is first changed
+ * @returns {{moved: Element[], limited: number}}
+ */
+export function movePitch(meiDoc, notes, delta, keeper = null) {
+  const doc = meiDoc.doc;
+  const before = scopeOf(timeline(meiDoc), notes, true);
+  keeper?.record(before);
+  const moved = [];
+  for (const n of notes) {
+    const d = Number(n.getAttribute('oct') ?? 4) * 7 + STEP_NAMES.indexOf(n.getAttribute('pname') ?? 'c') + delta;
+    if (d < 0 || d > 9 * 7 + 6) continue;
+    n.setAttribute('pname', STEP_NAMES[d % 7]);
+    n.setAttribute('oct', String(Math.floor(d / 7)));
+    moved.push(n);
+  }
+  meiDoc.changed();
+  const tl = timeline(meiDoc);
+  const after = scopeOf(tl, moved, true);
+  keeper?.record(after);
+  const id = idiom(doc);
+  const scope = new Set([...before, ...after]);
+  for (const n of scope) {
+    const e = tl.byId.get(n.getAttribute('xml:id'));
+    if (e) setGes(doc, n, soundingAlter(doc, tl, e), keyAlter(doc, n) !== 0, id);
+  }
+  for (const n of scope) tidy(n, id);
+  return { moved, limited: notes.length - moved.length };
 }
 
 /**

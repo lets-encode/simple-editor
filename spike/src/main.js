@@ -6,12 +6,12 @@ import { attachGestures } from './gestures.js';
 import { createBar } from './bar.js';
 import { FIXTURES, loadSettings, bindSettingsDialog } from './settings.js';
 import { MeiDoc } from './mei.js';
-import { stepPitch, setDurationSteps, durationCarrier, snapshot, restore } from './edit.js';
+import { setDurationSteps, durationCarrier, snapshot, restore } from './edit.js';
 import { Ghosts, harvestGlyphs, baseOf, staffLines } from './ghost.js';
 import { Facsimile, measureFrame } from './facsimile.js';
 import { EntryPane } from './pane.js';
 import { clefAt, pitchName, insertNote, durationAfter } from './entry.js';
-import { applyAccidental, accidSnapshot } from './accid.js';
+import { applyAccidental, accidSnapshot, movePitch, PitchKeeper } from './accid.js';
 
 const stage = document.getElementById('stage');
 const scoreEl = document.getElementById('score');
@@ -595,10 +595,11 @@ function ghostEntries() {
       const chord = n.localName === 'note' ? n.parentElement?.closest('chord') : null;
       const carrier = chord && !n.hasAttribute('dur') ? chord : n;
       const base = pending.get(n);
-      const baseDur = (pending.get(carrier) ?? baseOf(carrier)).dur;
+      const baseCarrier = pending.get(carrier) ?? baseOf(carrier);
+      const baseDur = baseCarrier.dur;
       const dur = carrier.getAttribute('dur');
       const now = baseOf(n);
-      if (now.pname !== base.pname || now.oct !== base.oct || now.accid !== base.accid || dur !== baseDur) {
+      if (now.pname !== base.pname || now.oct !== base.oct || now.accid !== base.accid || dur !== baseDur || carrier.getAttribute('dots') !== baseCarrier.dots) {
         out.push({ el: n, base, dur });
       }
     }
@@ -678,12 +679,14 @@ function editSummary(kind, n, skipped, limited) {
   return `${what}${extra.length ? ` (${extra.join(', ')})` : ''}`;
 }
 
-/** Applies `steps` to each target: pitch in diatonic steps (±7 an octave), duration along DURATIONS. */
-function applySteps(kind, el, steps) {
-  if (kind === 'dur') return setDurationSteps(el, el.getAttribute('dur'), steps) === steps;
-  const unit = Math.abs(steps) === 7 ? steps : Math.sign(steps);
-  for (let i = 0; i < Math.abs(steps / unit); i++) if (!stepPitch(doc.doc, el, unit)) return false;
-  return true;
+/**
+ * Applies `steps` to the targets: pitch in staff positions (±7 an octave), keeping written
+ * accidentals (since 2026-10-10; before, mei-friend's pitchMover dropped them); duration along
+ * DURATIONS. @returns how many targets hit a limit
+ */
+function applySteps(kind, targets, steps, keeper = null) {
+  if (kind === 'pitch') return movePitch(doc, targets, steps, keeper).limited;
+  return targets.filter((el) => setDurationSteps(el, el.getAttribute('dur'), steps) !== steps).length;
 }
 
 const EDIT_TEXT = { pitch: ['↓', '↑'], dur: ['longer', 'shorter'] };
@@ -694,8 +697,7 @@ function editOnce(kind, steps, how) {
   const { targets, skipped } = editTargets(kind);
   if (!targets.length) return hud(`${how} — nothing to change${sel.ids.size ? ' in the selection' : ' (nothing selected)'}`);
   notePending(targets);
-  let limited = 0;
-  for (const el of targets) if (!applySteps(kind, el, steps)) limited++;
+  const limited = applySteps(kind, targets, steps);
   const label = kind === 'pitch' ? `pitch ${EDIT_TEXT.pitch[steps > 0 ? 1 : 0]}${Math.abs(steps) === 7 ? ' octave' : ''}` : `duration ${EDIT_TEXT.dur[steps > 0 ? 1 : 0]}`;
   showEdits();
   hud(`${how}: ${label} — ${editSummary(kind, targets.length, skipped, limited)}`, true);
@@ -711,7 +713,9 @@ function startEditScrub(axis) {
   const { targets, skipped } = editTargets(kind);
   if (!targets.length) return hud(`two-finger scrub — nothing to change${sel.ids.size ? ' in the selection' : ' (nothing selected)'}`);
   notePending(targets);
-  edit = { kind, axis, skipped, targets: targets.map((el) => ({ el, snap: snapshot(el) })), shown: 0 };
+  // Pitch moves also change other notes' @accid.ges in the bar; the keeper puts all of them back.
+  const keeper = kind === 'pitch' ? new PitchKeeper(doc) : null;
+  edit = { kind, axis, skipped, keeper, targets: targets.map((el) => ({ el, snap: keeper ? null : snapshot(el) })), shown: 0 };
   showEditScrub(0, false);
 }
 
@@ -719,11 +723,9 @@ function showEditScrub(fingerSteps, done) {
   if (!edit) return;
   // Up and left are negative finger steps; up raises the pitch, left lengthens the duration.
   const steps = edit.kind === 'pitch' ? -fingerSteps : fingerSteps;
-  let limited = 0;
-  for (const t of edit.targets) {
-    restore(t.el, t.snap);
-    if (steps && !applySteps(edit.kind, t.el, steps)) limited++;
-  }
+  if (edit.keeper) edit.keeper.restore();
+  else for (const t of edit.targets) restore(t.el, t.snap);
+  const limited = steps ? applySteps(edit.kind, edit.targets.map((t) => t.el), steps, edit.keeper) : 0;
   if (steps !== edit.shown) {
     edit.shown = steps;
     navigator.vibrate?.(4);
@@ -738,7 +740,8 @@ function showEditScrub(fingerSteps, done) {
 
 function cancelEditScrub() {
   if (!edit) return;
-  for (const t of edit.targets) restore(t.el, t.snap);
+  if (edit.keeper) edit.keeper.restore();
+  else for (const t of edit.targets) restore(t.el, t.snap);
   edit = null;
   showEdits();
 }
@@ -810,6 +813,23 @@ function cancelSide() {
   side.snap.restore();
   side = null;
   showEdits();
+}
+
+/** Cycles the dots on the selection's notes, chords and rests: 0 → 1 → 2 → 0 (N11), all to the same count. */
+function cycleDots(how) {
+  if (bar.mode !== 'note') return hud(`${how} — ${bar.mode} mode is not part of this spike`);
+  const { targets, skipped } = editTargets('dur');
+  if (!targets.length) return hud(`${how} — nothing to dot${sel.ids.size ? ' in the selection' : ' (nothing selected)'}`);
+  notePending(targets);
+  const next = (Number(targets[0].getAttribute('dots') ?? 0) + 1) % 3;
+  for (const el of targets) {
+    if (next) el.setAttribute('dots', String(next));
+    else el.removeAttribute('dots');
+  }
+  navigator.vibrate?.(next ? [6, 40, 6].slice(0, 2 * next - 1) : 20);
+  showEdits();
+  const what = next ? `${next} dot${next > 1 ? 's' : ''}` : 'no dots';
+  hud(`${how}: ${what} — ${plural(targets.length, 'duration')}${skipped ? ` (${skipped} skipped)` : ''}`, true);
 }
 
 function noteCommand(key) {
@@ -899,12 +919,15 @@ function wireGestures() {
       pane.cancel('two fingers');
       twoDown = true;
       clearTimeout(idleTimer);
-      boxEl.hidden = true;
-      apply();
+      // Only a drag box cut short by the second finger needs the highlight put back; every other
+      // touch (each dots tap among them) skips the redraw.
+      if (!boxEl.hidden) {
+        boxEl.hidden = true;
+        apply();
+      }
       hud('two fingers');
     },
     onTwoSwipe(dir, { dist, ms, speed }) {
-      twoDown = false;
       const how = `two-finger flick ${ARROWS[dir]} (${dist} px, ${ms} ms, ${speed.toFixed(2)} px/ms)`;
       if (dir === 'left' || dir === 'right') return editOnce('dur', dir === 'left' ? -1 : 1, how);
       const octave = dist >= settings.octaveMinPx && speed >= settings.octaveSpeed;
@@ -917,9 +940,21 @@ function wireGestures() {
       showEditScrub(steps, false);
     },
     onTwoScrubEnd(steps) {
-      twoDown = false;
       showEditScrub(steps, true);
       armIdleReload();
+    },
+    onHoldArmed() {
+      armIdleReload();
+      hud('one finger holding — tap with another to cycle the dots');
+    },
+    onHoldTap() {
+      cycleDots('hold and tap');
+      armIdleReload();
+    },
+    onHoldEnd() {},
+    onHoldMiss(reason) {
+      armIdleReload();
+      hud(`dots: not counted — ${reason}`);
     },
     onSideStart(mover) {
       startSide(mover);
@@ -928,13 +963,16 @@ function wireGestures() {
       showSide(out, false);
     },
     onSideEnd(mover, out) {
-      twoDown = false;
       showSide(out, true);
       side = null;
       armIdleReload();
     },
-    onTwoCancel(reason) {
+    // Two-finger sessions keep their edits pending (ghosts, no reload) until the last finger lifts.
+    onTwoAllUp() {
       twoDown = false;
+      armIdleReload();
+    },
+    onTwoCancel(reason) {
       cancelEditScrub();
       cancelSide();
       armIdleReload();
@@ -965,6 +1003,8 @@ function wireGestures() {
     } else if (dir) {
       e.preventDefault();
       handleDirection(dir, e.shiftKey && sel.ids.size > 0, e.shiftKey ? 'Shift+arrow' : 'arrow key');
+    } else if (e.key === '.') {
+      cycleDots('. key');
     } else if (e.key === 'Escape') {
       clearSelection();
       hud('Escape — selected none');
@@ -1020,10 +1060,13 @@ async function loadFixture(key) {
   reloads.length = 0;
   pending.clear();
   faking = false;
-  const t0 = performance.now();
   score.load(doc);
   score.render();
-  initialLoadMs = Math.round(performance.now() - t0);
+  // Auto's first guess, before three edits have been timed: one reload as an edit would do it. The
+  // initial full layout is several times slower than a page reload, so judging by it made Auto start
+  // with ghosts on fast phones.
+  const t = score.reload(null, settings.reloadScope);
+  initialLoadMs = t.ser + t.load + t.render;
   clearSelection();
   bar.refreshStatus();
   hud(f.label);

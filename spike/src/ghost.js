@@ -16,7 +16,16 @@ const FLAG_UP = { 8: 'E240', 16: 'E242', 32: 'E244', 64: 'E246' };
 const FLAG_DOWN = { 8: 'E241', 16: 'E243', 32: 'E245', 64: 'E247' };
 const REST = { 1: 'E4E3', 2: 'E4E4', 4: 'E4E5', 8: 'E4E6', 16: 'E4E7', 32: 'E4E8', 64: 'E4E9' };
 export const ACCID = { s: 'E262', f: 'E260', n: 'E261', x: 'E263', ss: 'E263', ff: 'E264' };
-const DOT = 'E1E7';
+// Verovio 6.3 draws augmentation dots as ellipses, not glyphs: radius 0.2 staff spaces.
+const DOT_R = 0.2;
+
+/** An augmentation dot centred at (cx, cy), for a staff space of `space` user units. */
+function dot(cx, cy, space) {
+  const e = document.createElementNS(SVG_NS, 'ellipse');
+  const r = DOT_R * space;
+  Object.entries({ cx, cy, rx: r, ry: r }).forEach(([k, v]) => e.setAttribute(k, v));
+  return e;
+}
 
 // Glyph widths in staff spaces (Leipzig).
 const HEAD_WIDTH = { 1: 1.69, 2: 1.18, black: 1.18 };
@@ -92,7 +101,7 @@ function writtenAccid(note) {
 
 /** What a pending edit may have changed on a note or rest, to compare against later. */
 export function baseOf(el) {
-  return { pname: el.getAttribute('pname'), oct: el.getAttribute('oct'), dur: el.getAttribute('dur'), accid: writtenAccid(el) };
+  return { pname: el.getAttribute('pname'), oct: el.getAttribute('oct'), dur: el.getAttribute('dur'), dots: el.getAttribute('dots'), accid: writtenAccid(el) };
 }
 
 const parseUse = (use) => {
@@ -156,7 +165,18 @@ export class Ghosts {
     const p = use && parseUse(use);
     if (!p || !REST[e.dur]) return null;
     const out = document.createElementNS(SVG_NS, 'g');
-    out.append(this.use(REST[e.dur], p.x, p.y, p.s));
+    const glyph = this.use(REST[e.dur], p.x, p.y, p.s);
+    out.append(glyph);
+    // Dots after the rest, in the space above the staff's middle line.
+    const dots = Number(e.el.getAttribute('dots') ?? 0);
+    const lines = staffLines(svgEl.closest('g.staff'));
+    if (dots && lines) {
+      const space = (lines.at(-1) - lines[0]) / (lines.length - 1);
+      const mid = lines[Math.floor(lines.length / 2)];
+      const b = use.getBBox();
+      const right = p.x + (b.width ? b.x + b.width : (1.2 * space) / p.s) * p.s;
+      for (let i = 0; i < dots; i++) out.append(dot(right + (0.3 + DOT_R + 0.5 * i) * space, mid - space / 2, space));
+    }
     return out;
   }
 
@@ -211,7 +231,7 @@ export class Ghosts {
     if (accid && ACCID[accid]) out.append(this.use(ACCID[accid], p.x - 1.3 * space, y, p.s));
 
     const onLine = Math.round((y - lines[0]) / half) % 2 === 0;
-    for (let i = 0; i < dots; i++) out.append(this.use(DOT, p.x + w + (0.4 + 0.5 * i) * space, onLine ? y - half : y, p.s));
+    for (let i = 0; i < dots; i++) out.append(dot(p.x + w + (0.3 + DOT_R + 0.5 * i) * space, onLine ? y - half : y, space));
     return out;
   }
 

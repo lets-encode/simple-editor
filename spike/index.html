@@ -115,6 +115,26 @@
           <input type="range" name="sideAccidPx" min="10" max="80" step="2" />
         </label>
         <label>
+          Dots: two fingers still for <output></output> ms, then one lifts…
+          <input type="range" name="dotHoldMs" min="0" max="600" step="25" />
+        </label>
+        <label>
+          …and taps again within <output></output> ms (0 is off)
+          <input type="range" name="dotTapMs" min="0" max="1500" step="50" />
+        </label>
+        <label>
+          …each finger moving at most <output></output> px
+          <input type="range" name="dotStillPx" min="4" max="60" step="2" />
+        </label>
+        <label class="check">
+          <input type="checkbox" name="twoModeLock" />
+          Two-finger mode lock (scrubs keep their axis; lift both fingers between edits)
+        </label>
+        <label>
+          Two-finger session: both fingers still <output></output> ms closes a segment (0 is off)
+          <input type="range" name="twoRestMs" min="0" max="800" step="25" />
+        </label>
+        <label>
           Facsimile strip: <output></output> % of the score area
           <input type="range" name="stripPct" min="15" max="70" step="5" />
         </label>

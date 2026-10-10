@@ -242,6 +242,12 @@ dialog label {
   margin-bottom: 12px;
 }
 
+dialog label.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 dialog label[hidden] {
   display: none;
 }

@@ -32,6 +32,12 @@ export const DEFAULTS = {
   sideMovePx: 20,
   sideStillPx: 8,
   sideAccidPx: 30,
+  dotHoldMs: 0,
+  dotTapMs: 1000,
+  dotStillPx: 24,
+  twoRestMs: 250,
+  // true: the behaviour before two-finger sessions (no turns, no rests, dots only from a still hold)
+  twoModeLock: false,
   renderMode: 'auto',
   autoFakeMs: 150,
   fakeIdleMs: 350,
@@ -72,17 +78,18 @@ export function bindSettingsDialog(dialog, s, onFixture, onChange = () => {}) {
     for (const [name, value] of Object.entries(s)) {
       const input = form.elements[name];
       if (!input) continue;
-      input.value = value;
+      if (input.type === 'checkbox') input.checked = !!value;
+      else input.value = value;
       const out = input.closest('label')?.querySelector('output');
       if (out) out.textContent = value;
     }
   };
 
   form.addEventListener('input', (e) => {
-    const { name, value, type } = e.target;
+    const { name, value, type, checked } = e.target;
     if (!(name in s)) return;
     const prev = s[name];
-    s[name] = type === 'range' ? Number(value) : value;
+    s[name] = type === 'range' ? Number(value) : type === 'checkbox' ? checked : value;
     save(s);
     sync();
     if (name === 'fixture' && prev !== value) onFixture(value);
