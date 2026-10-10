@@ -1054,6 +1054,8 @@ let fixtureKey = null;
 let saveTimer = null;
 let editsOk = true;
 
+document.getElementById('build').textContent = `Build ${__BUILD__}`;
+
 const editsState = document.getElementById('edits-state');
 function showKept() {
   editsState.textContent = !editsOk ? 'not kept (storage refused)' : loadEdits(fixtureKey) ? 'edited copy kept' : 'original';
