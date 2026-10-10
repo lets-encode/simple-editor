@@ -29,6 +29,9 @@ export const DEFAULTS = {
   twoStepPx: 24,
   octaveMinPx: 100,
   octaveSpeed: 1.2,
+  sideMovePx: 20,
+  sideStillPx: 8,
+  sideAccidPx: 30,
   renderMode: 'auto',
   autoFakeMs: 150,
   fakeIdleMs: 350,
@@ -38,6 +41,7 @@ export const DEFAULTS = {
   paneSide: 'right',
   paneStepPx: 16,
   paneGhostDelayMs: 70,
+  paneAccidPx: 30,
 };
 
 const KEY = 'simple-editor-spike-settings';

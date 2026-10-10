@@ -3,8 +3,10 @@
 // staff positions; lifting inserts. Scrubbing near the top or bottom edge scrolls on by itself.
 // The clef in force is drawn faintly behind the lines, and the pitch name shows in a bubble beside
 // the pane, where the thumb does not cover it.
+// A sideways slide while scrubbing (N8, to try) adds a written accidental: right ♯, left ♭, measured
+// from where the ghost appeared; with pointer capture the finger may leave the narrow pane.
 
-import { glyphScale, glyphUse } from './ghost.js';
+import { glyphScale, glyphUse, ACCID } from './ghost.js';
 import { clefGlyph, fromDiatonic } from './entry.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -14,11 +16,15 @@ const TICK_MS = 30;
 // Ledger lines the pane reaches above and below the staff (the space beyond the last included).
 // Beyond that, ottava marks would be the way; revisit once real scores ask for more.
 const MAX_LEDGERS = 5;
+// Coming back towards the middle needs this much more travel than going out, so the accidental does
+// not flicker at the threshold.
+const ACCID_BACK_PX = 6;
 
 export class EntryPane {
   /**
    * @param {{el: HTMLElement, label: HTMLElement, settings: object,
-   *   onScrub: (d: number) => void, onLift: (d: number) => void, onCancel: () => void}} opts
+   *   onScrub: (d: number, accid: 's'|'f'|null) => void, onLift: (d: number, accid: 's'|'f'|null) => void,
+   *   onCancel: () => void}} opts
    *   `d` is a diatonic number (C4 = 28)
    */
   constructor({ el, label, settings, onScrub, onLift, onCancel }) {
@@ -70,7 +76,7 @@ export class EntryPane {
     return Math.min(Math.max(d, lo), hi);
   }
 
-  draw(ghost = this.touch?.shown ? this.touch.d : null) {
+  draw(ghost = this.touch?.shown ? this.touch.d : null, accid = this.touch?.accid ?? null) {
     const w = this.el.clientWidth;
     const h = this.el.clientHeight;
     if (!w || !h) return;
@@ -121,15 +127,19 @@ export class EntryPane {
 
     if (ghost !== null) {
       const gh = g('pane-ghost');
-      gh.append(glyphUse('E0A4', w / 2 - 0.59 * space, this.yOf(ghost), s));
-      this.showLabel(ghost);
+      // With an accidental, the pane is too narrow for both at full size: the notehead moves right
+      // and the accidental is drawn smaller in front of it.
+      const headX = accid ? Math.max(w / 2 - 0.59 * space, w - 1.25 * space) : w / 2 - 0.59 * space;
+      gh.append(glyphUse('E0A4', headX, this.yOf(ghost), s));
+      if (accid) gh.append(glyphUse(ACCID[accid], Math.max(headX - 0.75 * space, 1), this.yOf(ghost), 0.6 * s));
+      this.showLabel(ghost, accid);
     } else this.label.hidden = true;
   }
 
   /** The pitch name in a bubble on the score's side of the pane, level with the ghost. */
-  showLabel(d) {
+  showLabel(d, accid) {
     const l = this.label;
-    l.textContent = this.name ? this.name(d) : fromDiatonic(d).pname.toUpperCase();
+    l.textContent = this.name ? this.name(d, accid) : fromDiatonic(d).pname.toUpperCase();
     l.hidden = false;
     const pane = this.el.getBoundingClientRect();
     const main = this.el.offsetParent.getBoundingClientRect();
@@ -154,19 +164,21 @@ export class EntryPane {
       const y = e.clientY - el.getBoundingClientRect().top;
       // The ghost waits a moment, so the first finger of a slightly staggered two-finger touch
       // does not flash one; a tap within the wait still inserts.
-      this.touch = { id: e.pointerId, y, d: this.dAt(y), shown: false };
+      this.touch = { id: e.pointerId, y, x: e.clientX, x0: e.clientX, d: this.dAt(y), shown: false, accid: null };
       this.touch.wait = setTimeout(() => this.show(), this.settings.paneGhostDelayMs);
     });
     el.addEventListener('pointermove', (e) => {
       if (!this.touch || e.pointerId !== this.touch.id) return;
       this.touch.y = e.clientY - el.getBoundingClientRect().top;
+      this.touch.x = e.clientX;
       this.update();
     });
     el.addEventListener('pointerup', (e) => {
       if (!this.touch || e.pointerId !== this.touch.id) return;
       const d = this.touch.shown ? this.touch.d : this.dAt(this.touch.y);
+      const accid = this.touch.shown ? this.touch.accid : null;
       this.end();
-      this.h.onLift(d);
+      this.h.onLift(d, accid);
     });
     const lost = (e) => {
       if (this.touch && e.pointerId === this.touch.id) this.cancel('the browser cancelled the touch');
@@ -180,20 +192,36 @@ export class EntryPane {
     const t = this.touch;
     t.shown = true;
     t.d = this.dAt(t.y);
+    // The slide is measured from where the finger is when the ghost appears.
+    t.x0 = t.x;
     t.timer = setInterval(() => this.autoscroll(), TICK_MS);
     navigator.vibrate?.(4);
     this.draw();
-    this.h.onScrub(t.d);
+    this.h.onScrub(t.d, t.accid);
+  }
+
+  /** ♯ past `paneAccidPx` to the right of the start, ♭ to the left; 0 turns the slide off. */
+  accidAt(dx, current) {
+    const px = this.settings.paneAccidPx;
+    if (!px) return null;
+    const keep = current ? px - ACCID_BACK_PX : px;
+    if (dx >= keep && (current === 's' || dx >= px)) return 's';
+    if (dx <= -keep && (current === 'f' || dx <= -px)) return 'f';
+    return null;
   }
 
   update() {
-    if (!this.touch.shown) return;
-    const d = this.dAt(this.touch.y);
-    if (d === this.touch.d) return;
-    this.touch.d = d;
-    navigator.vibrate?.(4);
+    const t = this.touch;
+    if (!t.shown) return;
+    const d = this.dAt(t.y);
+    const accid = this.accidAt(t.x - t.x0, t.accid);
+    if (d === t.d && accid === t.accid) return;
+    // A stronger buzz for an accidental than for a staff position.
+    navigator.vibrate?.(accid !== t.accid ? 12 : 4);
+    t.d = d;
+    t.accid = accid;
     this.draw();
-    this.h.onScrub(d);
+    this.h.onScrub(d, accid);
   }
 
   /** Near the top or bottom edge the pane scrolls on, faster the nearer the edge. */

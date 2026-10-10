@@ -10,6 +10,10 @@
 // A scrub turns onto the other axis, starting a new segment, when the recent movement runs across
 // the current axis and the finger is `turnPx` across it from the segment's start. The travel across
 // counts towards the new segment's steps.
+//
+// Two fingers: their midpoint flicks and scrubs as one finger does, unless one finger holds still
+// while the other slides sideways (a one-sided slide, for accidentals): that is told apart by each
+// finger's own movement since touchdown, before the midpoint has gone far enough to fix an axis.
 
 /**
  * @typedef {'h'|'v'} Axis
@@ -32,6 +36,15 @@
  * @property {(reason: string) => void} onTwoCancel
  * @property {() => void} onTwoStart
  * @property {(e: PointerEvent) => boolean} [claims] whether a first finger starts a one-finger gesture
+ */
+
+/**
+ * One-sided slide handlers, called with the sliding finger ('left' or 'right', by position at
+ * touchdown) and its signed travel outward (positive: away from the still finger).
+ * @typedef {object} SideHandlers
+ * @property {(mover: 'left'|'right') => void} onSideStart
+ * @property {(mover: 'left'|'right', out: number) => void} onSide
+ * @property {(mover: 'left'|'right', out: number) => void} onSideEnd
  */
 
 /** @param {HTMLElement} el @param {() => object} getSettings @param {GestureHandlers} h */
@@ -229,6 +242,7 @@ export function attachGestures(el, getSettings, h) {
     blocked = true;
     const s = getSettings();
     two = { ids: [...down], t0: e.timeStamp, moved: false, axis: null, mode: 'pending', steps: 0, s };
+    two.p0 = two.ids.map((id) => ({ ...pts.get(id) }));
     const m = midpoint();
     Object.assign(two, { x0: m.x, y0: m.y, x: m.x, y: m.y });
     two.timer = setTimeout(() => {
@@ -263,8 +277,38 @@ export function attachGestures(el, getSettings, h) {
     updateTwoScrub();
   }
 
+  /** The sliding finger's outward travel: away from the still finger is positive. */
+  const sideOut = () => {
+    const i = two.side.index;
+    const dx = pts.get(two.ids[i]).x - two.p0[i].x;
+    return two.side.mover === 'left' ? -dx : dx;
+  };
+
+  /**
+   * One finger has slid `sideMovePx` sideways while the other stayed within `sideStillPx` (and
+   * within a third of the slider's travel): a one-sided slide.
+   */
+  function maybeSide() {
+    if (!h.onSideStart || !two.s.sideMovePx) return false;
+    const d = two.ids.map((id, i) => ({ dx: pts.get(id).x - two.p0[i].x, dy: pts.get(id).y - two.p0[i].y }));
+    const len = d.map((v) => Math.hypot(v.dx, v.dy));
+    const i = Math.abs(d[0].dx) >= Math.abs(d[1].dx) ? 0 : 1;
+    const still = len[1 - i];
+    const slide = Math.abs(d[i].dx);
+    if (slide < two.s.sideMovePx || still > two.s.sideStillPx || still > slide / 3 || slide < 1.5 * Math.abs(d[i].dy)) return false;
+    const mover = two.p0[i].x < two.p0[1 - i].x ? 'left' : 'right';
+    clearTimeout(two.timer);
+    two.mode = 'side';
+    two.side = { index: i, mover };
+    h.onSideStart(mover);
+    h.onSide(mover, sideOut());
+    return true;
+  }
+
   function moveTwo(e) {
     if (two.dead || !two.ids.includes(e.pointerId)) return;
+    if (two.mode === 'side') return h.onSide(two.side.mover, sideOut());
+    if (two.mode === 'pending' && !two.axis && maybeSide()) return;
     const m = midpoint();
     two.x = m.x;
     two.y = m.y;
@@ -289,6 +333,12 @@ export function attachGestures(el, getSettings, h) {
     clearTimeout(t.timer);
     if (t.dead) return;
     if (t.mode === 'scrub') return h.onTwoScrubEnd(t.steps);
+    if (t.mode === 'side') {
+      two = t;
+      const out = sideOut();
+      two = null;
+      return h.onSideEnd(t.side.mover, out);
+    }
     const dx = t.x - t.x0;
     const dy = t.y - t.y0;
     const dist = Math.hypot(dx, dy);

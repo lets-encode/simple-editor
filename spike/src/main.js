@@ -11,6 +11,7 @@ import { Ghosts, harvestGlyphs, baseOf, staffLines } from './ghost.js';
 import { Facsimile, measureFrame } from './facsimile.js';
 import { EntryPane } from './pane.js';
 import { clefAt, pitchName, insertNote, durationAfter } from './entry.js';
+import { applyAccidental, accidSnapshot } from './accid.js';
 
 const stage = document.getElementById('stage');
 const scoreEl = document.getElementById('score');
@@ -172,7 +173,7 @@ function updateCaret() {
   const s = stage.getBoundingClientRect();
   const pad = (c.bottom - c.top) / 4;
   Object.assign(caretEl.style, { left: `${c.x - s.left}px`, top: `${c.top - s.top - pad}px`, height: `${c.bottom - c.top + 2 * pad}px` });
-  pane.setClef(clefAt(doc.doc, c.focusEl, c.ip.item.staffN), (d) => pitchName(doc.doc, c.focusEl, d));
+  pane.setClef(clefAt(doc.doc, c.focusEl, c.ip.item.staffN), (d, accid) => entryName(c.focusEl, d, accid));
 }
 
 function toggleEntry() {
@@ -200,7 +201,14 @@ function setPaneSide() {
  */
 const entryLength = (c) => durationAfter(c.focusEl, entry.last);
 
-function entryScrub(d) {
+const SIGNS = { s: '♯', f: '♭', n: '♮' };
+
+/** The ghost's name: with a slid accidental, the letter and that accidental; else the key's (N7). */
+function entryName(focusEl, d, accid) {
+  return accid ? `${pitchName(doc.doc, focusEl, d).charAt(0)}${SIGNS[accid]}` : pitchName(doc.doc, focusEl, d);
+}
+
+function entryScrub(d, accid) {
   const c = caretGeometry();
   const clef = c && clefAt(doc.doc, c.focusEl, c.ip.item.staffN);
   if (!clef) return;
@@ -210,11 +218,11 @@ function entryScrub(d) {
   // No horizontal position exists yet: just after the focus, overlapping the next note if need be.
   const x = c.ip.before ? p.x - 1.6 * space : p.x + 0.3 * space;
   const { dur, dots } = entryLength(c);
-  ghosts.showInsert(c.staffG, x, d - clef.bottom, { dur: Number(dur), dots });
-  hud(`entry: ${pitchName(doc.doc, c.focusEl, d)}`);
+  ghosts.showInsert(c.staffG, x, d - clef.bottom, { dur: Number(dur), dots, accid });
+  hud(`entry: ${entryName(c.focusEl, d, accid)}`);
 }
 
-function entryLift(d) {
+function entryLift(d, accid) {
   ghosts.clearInsert();
   const c = caretGeometry();
   if (!c) return;
@@ -223,6 +231,7 @@ function entryLift(d) {
   const advance = !c.ip.before && entry.run === c.ip.item.id;
   const { note, moved } = insertNote(doc, { focus: c.focusEl, before: c.ip.before, d, dur: len.dur, dots: len.dots, advance });
   doc.changed();
+  const ripple = accid ? applyAccidental(doc, [note], accid).rippled : 0;
   const id = note.getAttribute('xml:id');
   entry.run = id;
   entry.last = len;
@@ -239,7 +248,8 @@ function entryLift(d) {
   apply();
   bar.refreshStatus();
   const bar_ = note.closest('measure')?.getAttribute('n') ?? '?';
-  hud(`inserted ${pitchName(doc.doc, note, d)} in bar ${bar_}${moved ? ' (on into the next bar)' : ''} · ${t.ser + t.load + t.render} ms ${t.scope}`);
+  const follow = ripple ? `, ${plural(ripple, 'later note')} in the bar follow` : '';
+  hud(`inserted ${entryName(note, d, accid)} in bar ${bar_}${moved ? ' (on into the next bar)' : ''}${follow} · ${t.ser + t.load + t.render} ms ${t.scope}`);
 }
 
 
@@ -735,8 +745,76 @@ function cancelEditScrub() {
 
 const NOTE_COMMAND_STEPS = { longer: ['dur', -1], shorter: ['dur', 1], down: ['pitch', -1], up: ['pitch', 1] };
 
+const ACCID_KEYS = { sharp: 's', flat: 'f', natural: 'n' };
+
+/** Sets or removes a written accidental on the selection's notes (N8), with the bar's ripple. */
+function accidentalCommand(value, how) {
+  if (bar.mode !== 'note') return hud(`${how} — ${bar.mode} mode is not part of this spike`);
+  const els = [...sel.ids].map((id) => doc.get(id)).filter(Boolean);
+  const notes = els.filter((el) => el.localName === 'note');
+  const skipped = els.length - notes.length;
+  if (!notes.length) return hud(`${how} — no notes${sel.ids.size ? ' in the selection' : ' (nothing selected)'}`);
+  notePending(notes);
+  const { removed, rippled } = applyAccidental(doc, notes, value);
+  showEdits();
+  const follow = rippled ? `; ${plural(rippled, 'later note')} in the bar follow` : '';
+  hud(`${how}: ${SIGNS[value]} ${removed ? 'removed from' : 'on'} ${plural(notes.length, 'note')}${follow}${skipped ? ` (${skipped} skipped)` : ''}`, true);
+}
+
+// The one-sided two-finger slide (accidentals): one finger holds still while the other slides
+// sideways. Out to the left gives ♭, out to the right ♯, in towards the still finger ♮. Tried out
+// live from a snapshot of the notes it can touch, kept on lift, put back exactly on cancel.
+let side = null;
+
+function sideValue(mover, out, current) {
+  const px = settings.sideAccidPx;
+  const outward = mover === 'left' ? 'f' : 's';
+  const keep = px - 6;
+  if (out >= px || (current === outward && out >= keep)) return outward;
+  if (out <= -px || (current === 'n' && out <= -keep)) return 'n';
+  return null;
+}
+
+function sideHud(done) {
+  const what = side.value
+    ? `${SIGNS[side.value]} ${side.res.removed ? 'removed from' : 'on'} ${plural(side.notes.length, 'note')}${side.res.rippled ? `; ${plural(side.res.rippled, 'later note')} in the bar follow` : ''}`
+    : `slide ${side.mover === 'left' ? 'left for ♭' : 'right for ♯'}, inwards for ♮`;
+  hud(`one-sided slide (${side.mover} finger): ${what}${side.skipped ? ` (${side.skipped} skipped)` : ''}${done ? ' (done)' : ''}`, true);
+}
+
+function startSide(mover) {
+  if (bar.mode !== 'note') return hud(`one-sided slide — ${bar.mode} mode is not part of this spike`);
+  const els = [...sel.ids].map((id) => doc.get(id)).filter(Boolean);
+  const notes = els.filter((el) => el.localName === 'note');
+  if (!notes.length) return hud(`one-sided slide — no notes${sel.ids.size ? ' in the selection' : ' (nothing selected)'}`);
+  notePending(notes);
+  side = { mover, notes, skipped: els.length - notes.length, snap: accidSnapshot(doc, notes), value: null, res: null };
+  sideHud(false);
+}
+
+function showSide(out, done) {
+  if (!side) return;
+  const v = sideValue(side.mover, out, side.value);
+  if (v !== side.value) {
+    side.value = v;
+    navigator.vibrate?.(12);
+    side.snap.restore();
+    side.res = v ? applyAccidental(doc, side.notes, v) : null;
+    showEdits();
+  }
+  sideHud(done);
+}
+
+function cancelSide() {
+  if (!side) return;
+  side.snap.restore();
+  side = null;
+  showEdits();
+}
+
 function noteCommand(key) {
   if (key === 'insert') return toggleEntry();
+  if (ACCID_KEYS[key]) return accidentalCommand(ACCID_KEYS[key], 'button');
   const [kind, steps] = NOTE_COMMAND_STEPS[key];
   editOnce(kind, steps, 'button');
 }
@@ -843,9 +921,22 @@ function wireGestures() {
       showEditScrub(steps, true);
       armIdleReload();
     },
+    onSideStart(mover) {
+      startSide(mover);
+    },
+    onSide(mover, out) {
+      showSide(out, false);
+    },
+    onSideEnd(mover, out) {
+      twoDown = false;
+      showSide(out, true);
+      side = null;
+      armIdleReload();
+    },
     onTwoCancel(reason) {
       twoDown = false;
       cancelEditScrub();
+      cancelSide();
       armIdleReload();
       hud(`ignored: ${reason}`);
     },

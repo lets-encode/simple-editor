@@ -10,6 +10,10 @@ export const NOTE_COMMANDS = [
   { key: 'shorter', arrow: '→', icon: { dur: 16 }, title: 'Shorter duration' },
   { key: 'down', arrow: '↓', icon: { dur: 8, pos: 'bottom' }, title: 'Pitch down a step' },
   { key: 'up', arrow: '↑', icon: { dur: 8, pos: 'top' }, title: 'Pitch up a step' },
+  // Written accidentals (N8): tapping the same one again removes it.
+  { key: 'sharp', group: 'accid', text: '♯', title: 'Sharp (again to remove)' },
+  { key: 'flat', group: 'accid', text: '♭', title: 'Flat (again to remove)' },
+  { key: 'natural', group: 'accid', text: '♮', title: 'Natural (again to remove)' },
 ];
 
 const MODES = {
@@ -67,21 +71,28 @@ export function createBar(bar, actions) {
       label.className = 'mode-label';
       label.setAttribute('aria-label', m.label);
       label.append(modeFace(m));
-      const commands =
-        active === 'note'
-          ? NOTE_COMMANDS.map((c) => {
-              const b = button(
-                [c.arrow, noteIcon(c.icon)],
-                () => {
-                  actions.note(c.key);
-                  if (c.toggle) b.setAttribute('aria-pressed', String(actions.pressed(c.key)));
-                },
-                { title: c.title, className: 'icon', pressed: c.toggle ? actions.pressed(c.key) : undefined },
-              );
-              return b;
-            })
-          : m.commands.map((c) => button(c, null, { disabled: true, title: 'Not part of this spike' }));
-      bar.append(group(button('Home', () => ((open = false), render())), framed(label, ...commands)));
+      const noteButton = (c) => {
+        const b = button(
+          c.icon ? [c.arrow, noteIcon(c.icon)] : c.text,
+          () => {
+            actions.note(c.key);
+            if (c.toggle) b.setAttribute('aria-pressed', String(actions.pressed(c.key)));
+          },
+          { title: c.title, className: c.icon ? 'icon' : 'accid', pressed: c.toggle ? actions.pressed(c.key) : undefined },
+        );
+        return b;
+      };
+      const home = button('Home', () => ((open = false), render()));
+      if (active === 'note') {
+        // The accidentals get a framed group of their own, which wraps onto its own row on a phone.
+        const main = NOTE_COMMANDS.filter((c) => !c.group).map(noteButton);
+        const accid = NOTE_COMMANDS.filter((c) => c.group === 'accid').map(noteButton);
+        const accidGroup = framed(...accid);
+        accidGroup.classList.add('accid-group');
+        bar.append(group(home, framed(label, ...main), accidGroup));
+      } else {
+        bar.append(group(home, framed(label, ...m.commands.map((c) => button(c, null, { disabled: true, title: 'Not part of this spike' })))));
+      }
     } else {
       bar.append(
         group(

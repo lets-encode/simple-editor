@@ -15,7 +15,7 @@ const BLACK_HEAD = 'E0A4';
 const FLAG_UP = { 8: 'E240', 16: 'E242', 32: 'E244', 64: 'E246' };
 const FLAG_DOWN = { 8: 'E241', 16: 'E243', 32: 'E245', 64: 'E247' };
 const REST = { 1: 'E4E3', 2: 'E4E4', 4: 'E4E5', 8: 'E4E6', 16: 'E4E7', 32: 'E4E8', 64: 'E4E9' };
-const ACCID = { s: 'E262', f: 'E260', n: 'E261', x: 'E263', ss: 'E263', ff: 'E264' };
+export const ACCID = { s: 'E262', f: 'E260', n: 'E261', x: 'E263', ss: 'E263', ff: 'E264' };
 const DOT = 'E1E7';
 
 // Glyph widths in staff spaces (Leipzig).

@@ -165,6 +165,14 @@ body {
     flex: 1;
   }
 
+  /* The Note level's accidentals take a row of their own, under its other commands. */
+  #bar .group:first-child {
+    flex-wrap: wrap;
+  }
+  #bar .group:first-child > .accid-group {
+    flex-basis: 100%;
+  }
+
   #bar .spacer {
     display: none;
   }
@@ -264,6 +272,12 @@ dialog menu button {
   justify-content: center;
   gap: 2px;
   font-size: 16px;
+}
+
+/* ♯ ♭ ♮: a music glyph, large enough to read at a glance. */
+#bar button.accid {
+  font-size: 24px;
+  line-height: 1;
 }
 
 #bar .note-icon {

@@ -103,6 +103,18 @@
           <input type="range" name="octaveSpeed" min="0.3" max="4" step="0.1" />
         </label>
         <label>
+          One-sided slide (accidentals): one finger slides <output></output> px sideways (0 is off)…
+          <input type="range" name="sideMovePx" min="0" max="60" step="2" />
+        </label>
+        <label>
+          …while the other stays within <output></output> px
+          <input type="range" name="sideStillPx" min="2" max="30" step="1" />
+        </label>
+        <label>
+          …and ♭ / ♯ / ♮ after <output></output> px of slide
+          <input type="range" name="sideAccidPx" min="10" max="80" step="2" />
+        </label>
+        <label>
           Facsimile strip: <output></output> % of the score area
           <input type="range" name="stripPct" min="15" max="70" step="5" />
         </label>
@@ -127,6 +139,10 @@
         <label>
           Entry pane: show the ghost after <output></output> ms (a second finger sooner makes it two-finger)
           <input type="range" name="paneGhostDelayMs" min="0" max="200" step="10" />
+        </label>
+        <label>
+          Entry pane: slide sideways <output></output> px for ♯ (right) or ♭ (left); 0 is off
+          <input type="range" name="paneAccidPx" min="0" max="80" step="2" />
         </label>
         <label>
           Showing edits
