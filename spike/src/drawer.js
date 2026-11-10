@@ -1,10 +1,12 @@
 // The drawer bar: a prototype of the layout proposed on 2026-11-10, to be judged on a phone.
-// A strip that never moves lists the modes, undo, redo and one more button. A drawer slides out of
+// A strip that never moves lists the modes, undo, redo and the view button. A drawer slides out of
 // it with three resting sizes, like the facsimile sheet: closed (the strip alone), pad and full.
 // Closed and pad resize the stage; full covers the score, so it never re-lays out.
-// The pad has twelve slots, one per two-finger gesture, in the same place in every mode; a slot is
-// dashed where the gesture does nothing. Only the Note pad works: every other button says in the
-// HUD what it stands for.
+// The pad is two rows of six: a button for every two-finger gesture, dashed where the gesture does
+// nothing for the current kind. Buttons that belong together sit in a hairline frame, as on the
+// classic bar; rows mean nothing, so slots that are free for every kind of a mode go to the mode's
+// kinds, and the rows above have less to hold.
+// Only the Note pad works: every other button says in the HUD what it stands for.
 
 import { noteIcon } from './icons.js';
 
@@ -12,6 +14,8 @@ const noteSlot = (key, arrow, icon, title, extra = {}) => ({ key, face: () => [a
 const slot = (label, title, extra = {}) => ({ face: () => label, title, ...extra });
 const none = (gesture) => ({ face: () => '', title: `${gesture}: nothing in this mode`, dead: true });
 const pair = (gesture) => [none(gesture), none(gesture)];
+/** Buttons that belong together, drawn in one frame. */
+const frame = (...slots) => ({ frame: slots });
 
 const ACROSS = 'Two fingers left / right';
 const UPDOWN = 'Two fingers up / down';
@@ -19,26 +23,28 @@ const FLICK = 'Fast two-finger flick up / down';
 const SIDE = 'One-sided slide';
 
 // The one-sided slide outside Note mode: the left finger owns the start, the right finger the end.
-const START = [slot('|←', 'Start one note earlier'), slot('|→', 'Start one note later')];
-const END = [slot('←|', 'End one note earlier'), slot('→|', 'End one note later')];
-const PLACE = [slot('below', 'Below (then auto, then above)'), slot('above', 'Above (then auto, then below)')];
-// Filled in when the pad is drawn: the mode's current kind, and Delete or the view button.
+const START = frame(slot('|←', 'Start one note earlier'), slot('|→', 'Start one note later'));
+const END = frame(slot('←|', 'End one note earlier'), slot('→|', 'End one note later'));
+const PLACE = frame(slot('below', 'Below (then auto, then above)'), slot('above', 'Above (then auto, then below)'));
+const nothing = (gesture) => frame(...pair(gesture));
+// Filled in when the pad is drawn: the mode's current kind, Delete, and the buttons that choose a
+// kind.
 const KIND = { kindSlot: true };
 const LAST = { lastSlot: true };
+const choose = (...keys) => frame(...keys.map((kindKey) => ({ kindKey })));
 
 const MODES = {
   note: {
     label: 'Note',
     pad: () => [
-      noteSlot('longer', '←', { dur: 4 }, 'Longer duration'),
-      noteSlot('shorter', '→', { dur: 16 }, 'Shorter duration'),
-      noteSlot('down', '↓', { dur: 8, pos: 'bottom' }, 'Pitch down a step'),
-      noteSlot('up', '↑', { dur: 8, pos: 'top' }, 'Pitch up a step'),
-      slot('8↓', 'Octave down', { key: 'octaveDown' }),
-      slot('8↑', 'Octave up', { key: 'octaveUp' }),
-      slot('♭', 'Flat (again to remove)', { key: 'flat', cls: 'accid' }),
-      slot('♮', 'Natural (again to remove)', { key: 'natural', cls: 'accid' }),
-      slot('♯', 'Sharp (again to remove)', { key: 'sharp', cls: 'accid' }),
+      frame(noteSlot('longer', '←', { dur: 4 }, 'Longer duration'), noteSlot('shorter', '→', { dur: 16 }, 'Shorter duration')),
+      frame(noteSlot('down', '↓', { dur: 8, pos: 'bottom' }, 'Pitch down a step'), noteSlot('up', '↑', { dur: 8, pos: 'top' }, 'Pitch up a step')),
+      frame(slot('8↓', 'Octave down', { key: 'octaveDown' }), slot('8↑', 'Octave up', { key: 'octaveUp' })),
+      frame(
+        slot('♭', 'Flat (again to remove)', { key: 'flat', cls: 'accid' }),
+        slot('♮', 'Natural (again to remove)', { key: 'natural', cls: 'accid' }),
+        slot('♯', 'Sharp (again to remove)', { key: 'sharp', cls: 'accid' }),
+      ),
       noteSlot('insert', '', { dur: 4, sparkle: true }, 'Insert notes (entry pane)', { toggle: true }),
       slot('•', 'Dots: none, one, two', { key: 'dots', cls: 'accid' }),
       LAST,
@@ -48,8 +54,7 @@ const MODES = {
       slot('tie', 'Tie to the next note'),
       slot('grace', 'Grace note'),
       slot('x ♭♭', 'Double sharp and double flat'),
-      slot('swap←', 'Swap with the note before'),
-      slot('swap→', 'Swap with the note after'),
+      frame(slot('swap←', 'Swap with the note before'), slot('swap→', 'Swap with the note after')),
     ],
   },
   beam: {
@@ -59,16 +64,15 @@ const MODES = {
       ['tuplet', 'tuplet'],
     ],
     pad: (kind) => [
-      ...(kind === 'tuplet' ? [slot('−', 'Tuplet ratio: fewer'), slot('+', 'Tuplet ratio: more')] : pair(ACROSS)),
-      slot('stem↓', kind === 'tuplet' ? 'Number below' : 'Stems down (then auto, then up)'),
-      slot('stem↑', kind === 'tuplet' ? 'Number above' : 'Stems up (then auto, then down)'),
-      ...(kind === 'beam' ? [slot('staff↓', 'Move to the staff below'), slot('staff↑', 'Move to the staff above')] : pair(FLICK)),
-      ...START,
-      ...END,
+      kind === 'tuplet' ? frame(slot('−', 'Tuplet ratio: fewer'), slot('+', 'Tuplet ratio: more')) : nothing(ACROSS),
+      frame(slot('stem↓', kind === 'tuplet' ? 'Number below' : 'Stems down (then auto, then up)'), slot('stem↑', kind === 'tuplet' ? 'Number above' : 'Stems up (then auto, then down)')),
+      kind === 'beam' ? frame(slot('staff↓', 'Move to the staff below'), slot('staff↑', 'Move to the staff above')) : nothing(FLICK),
+      START,
+      END,
       KIND,
       LAST,
     ],
-    more: [slot('chord', 'Notes ↔ chord'), slot('graces', 'Grace group')],
+    more: [choose('beam', 'tuplet'), slot('chord', 'Notes ↔ chord'), slot('graces', 'Grace group')],
   },
   slur: {
     label: 'Slur',
@@ -78,11 +82,11 @@ const MODES = {
       ['8va', '8va'],
       ['pedal', 'pedal'],
     ],
+    // Left / right and the fast flick do nothing to any kind of line, so the kinds take their slots.
     pad: (kind) => [
-      ...pair(ACROSS),
-      ...(kind === 'pedal' ? pair(UPDOWN) : PLACE),
-      ...pair(FLICK),
-      ...(kind === 'tie' ? [...pair(SIDE), ...pair(SIDE)] : [...START, ...END]),
+      choose('slur', 'tie', '8va', 'pedal'),
+      kind === 'pedal' ? nothing(UPDOWN) : PLACE,
+      ...(kind === 'tie' ? [nothing(SIDE), nothing(SIDE)] : [START, END]),
       KIND,
       LAST,
     ],
@@ -103,17 +107,17 @@ const MODES = {
       ['turn', 'turn'],
       ['arpeggio', 'arp'],
     ],
-    pad: (kind, api) => [
-      slot('‹', 'The mark before this one in the palette', { run: () => api.stepKind(-1) }),
-      slot('›', 'The mark after this one in the palette', { run: () => api.stepKind(1) }),
-      ...PLACE,
-      ...pair(FLICK),
-      ...pair(SIDE),
-      ...(kind === 'trill' ? END : pair(SIDE)),
+    // A mark has a placement and, for a trill, the end of its wavy line: they share one row, and
+    // the palette's first six marks take the other. The palette is the direct route to a mark, so
+    // there are no buttons for stepping to its neighbour.
+    pad: (kind) => [
+      choose('staccato', 'accent', 'tenuto', 'marcato', 'staccatissimo', 'spiccato'),
+      kind === 'trill' ? END : nothing(SIDE),
+      PLACE,
       KIND,
       LAST,
     ],
-    more: [],
+    more: [choose('fermata', 'trill', 'mordent', 'turn', 'arpeggio')],
   },
 };
 
@@ -125,7 +129,8 @@ const TAP_PX = 6;
  * @param {HTMLElement} bar
  * @param {{ page: (d: number) => void, zoom: (d: number) => void, settings: () => void, pages: () => {page: number, count: number}, goto: (page: number) => void,
  *   note: (command: string) => void, pressed: (command: string) => boolean, hud: (text: string) => void,
- *   prefs: {barRest: string, barStripLast: string}, savePrefs: () => void }} actions
+ *   covers: (px: number, animate: boolean) => void,
+ *   prefs: {barRest: string}, savePrefs: () => void }} actions
  */
 export function createDrawerBar(bar, actions) {
   const app = bar.parentElement;
@@ -136,6 +141,9 @@ export function createDrawerBar(bar, actions) {
   let view = false;
   let sizes = { closed: 0, pad: 0, full: 0 };
   let timer;
+  // What the panel shows and what the grid gives the bar; the difference lies over the score.
+  let shown = 0;
+  let flowSize = 0;
 
   const el = (tag, className) => {
     const e = document.createElement(tag);
@@ -179,10 +187,9 @@ export function createDrawerBar(bar, actions) {
     return b;
   };
 
+  // Ruled on 2026-11-10: the view button closes the strip, and Delete is the pad's last slot.
   const deleteSlot = () => slot('⌫', 'Delete', { cls: 'glyph' });
   const viewSlot = () => slot('⋯', 'Page, size and settings', { cls: 'glyph', pressed: view, run: () => ((view = !view), draw()) });
-  const stripLast = () => (actions.prefs.barStripLast === 'delete' ? deleteSlot() : viewSlot());
-  const padLast = () => (actions.prefs.barStripLast === 'delete' ? viewSlot() : deleteSlot());
 
   const kindLabel = (mode) => MODES[mode].kinds.find(([k]) => k === kinds[mode])[1];
   const setKind = (k) => {
@@ -190,13 +197,6 @@ export function createDrawerBar(bar, actions) {
     actions.hud(`${MODES[active].label}: ${k} is the current kind — applying it is not built in this prototype`);
     draw();
   };
-  const api = {
-    stepKind(d) {
-      const all = MODES[active].kinds.map(([k]) => k);
-      setKind(all[(all.indexOf(kinds[active]) + d + all.length) % all.length]);
-    },
-  };
-
   /** Page, size and settings, in the pad's place and at the pad's size. */
   const viewRow = () => {
     const pageSelect = el('select');
@@ -246,21 +246,25 @@ export function createDrawerBar(bar, actions) {
       ),
       button(slot('↶', 'Undo')),
       button(slot('↷', 'Redo')),
-      button(stripLast()),
+      button(viewSlot()),
     );
     pad.classList.toggle('view', view);
-    pad.replaceChildren(
-      ...(view
-        ? viewRow()
-        : m.pad(kinds[active], api).map((s) => {
-            if (s === LAST) return button(padLast());
-            if (s === KIND) return button(slot(kindLabel(active), `${kinds[active]}: on / off`, { cls: 'kind' }));
-            return button(s.key === 'insert' ? { ...s, pressed: actions.pressed('insert') } : s);
-          })),
-    );
-    const palette = [...(m.kinds ?? []).map(([k, label]) => slot(label, k, { pressed: k === kinds[active], run: () => setKind(k) })), ...m.more];
-    more.style.setProperty('--more-cols', String(Math.ceil(palette.length / 6)));
-    more.replaceChildren(...palette.map(button));
+    const resolve = (s) => {
+      if (s === LAST) return deleteSlot();
+      if (s === KIND) return slot(kindLabel(active), `${kinds[active]}: on / off`, { cls: 'kind' });
+      if (s.kindKey) return slot(m.kinds.find(([k]) => k === s.kindKey)[1], s.kindKey, { pressed: s.kindKey === kinds[active], run: () => setKind(s.kindKey) });
+      return s.key === 'insert' ? { ...s, pressed: actions.pressed('insert') } : s;
+    };
+    const item = (s) => {
+      if (!s.frame) return button(resolve(s));
+      const f = el('div', s.frame.length > 2 ? 'frame wide' : 'frame');
+      f.style.setProperty('--span', String(s.frame.length));
+      f.append(...s.frame.map((inner) => button(resolve(inner))));
+      return f;
+    };
+    pad.replaceChildren(...(view ? viewRow() : m.pad(kinds[active]).map(item)));
+    more.style.setProperty('--more-cols', String(Math.ceil(m.more.flatMap((s) => s.frame ?? s).length / 6)));
+    more.replaceChildren(...m.more.map(item));
     refreshPages();
     settle(rest, false);
   };
@@ -275,7 +279,13 @@ export function createDrawerBar(bar, actions) {
     sizes = { closed, pad: closed + dim(pad), full: closed + dim(pad) + dim(more) };
   };
 
-  const show = (size) => panel.style.setProperty('--bar-size-now', `${size}px`);
+  /** Tells the facsimile sheet how far the drawer reaches into the score's area (portrait only: in landscape it comes from the side). */
+  const report = (animate) => actions.covers(portrait.matches ? Math.max(0, shown - flowSize) : 0, animate);
+  const show = (size, animate = false) => {
+    shown = size;
+    panel.style.setProperty('--bar-size-now', `${size}px`);
+    report(animate);
+  };
 
   /** Snaps to a resting size. The stage takes the room left once the animation is over; full only covers. */
   function settle(to, animate = true) {
@@ -284,8 +294,12 @@ export function createDrawerBar(bar, actions) {
     panel.dataset.rest = rest;
     panel.classList.toggle('animate', animate);
     // The view row shows over the score while the drawer is closed, without resizing the stage.
-    show(view && rest === 'closed' ? sizes.pad : sizes[rest]);
-    const flow = () => app.style.setProperty('--bar-flow', `${rest === 'closed' ? sizes.closed : sizes.pad}px`);
+    show(view && rest === 'closed' ? sizes.pad : sizes[rest], animate);
+    const flow = () => {
+      flowSize = rest === 'closed' ? sizes.closed : sizes.pad;
+      app.style.setProperty('--bar-flow', `${flowSize}px`);
+      report(false);
+    };
     clearTimeout(timer);
     if (animate) timer = setTimeout(flow, 200);
     else flow();
@@ -355,6 +369,7 @@ export function createDrawerBar(bar, actions) {
       portrait.removeEventListener('change', turned);
       app.classList.remove('drawer');
       app.style.removeProperty('--bar-flow');
+      actions.covers(0, false);
       bar.replaceChildren();
     },
   };

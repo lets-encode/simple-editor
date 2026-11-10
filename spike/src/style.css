@@ -808,6 +808,36 @@ dialog .stats button {
   line-height: 1;
 }
 
+/* Buttons that belong together sit in a hairline frame, as on the classic bar, drawn in the gap so
+   that it takes no room. Sideways, where the pad flows two wide, only pairs keep their frame. */
+#drawer .frame {
+  position: relative;
+  grid-column: span var(--span);
+  display: grid;
+  grid-template-columns: subgrid;
+  gap: 4px;
+}
+
+#drawer .frame::after {
+  content: '';
+  position: absolute;
+  inset: -1.5px;
+  border: 1px solid #b9b1a2;
+  border-radius: 12px;
+  pointer-events: none;
+}
+
+#drawer .frame.wide,
+#drawer .more .frame {
+  display: contents;
+}
+
+@media (min-resolution: 2dppx) {
+  #drawer .frame::after {
+    border-width: 0.5px;
+  }
+}
+
 /* A gesture that does nothing in this mode keeps its slot. */
 #drawer button.dead {
   border-style: dashed;
@@ -901,6 +931,11 @@ dialog .stats button {
     grid-template-columns: repeat(6, minmax(0, 1fr));
   }
 
+  #drawer .frame.wide,
+  #drawer .more .frame {
+    display: grid;
+  }
+
   #drawer .view-label {
     grid-column: span 5;
     text-align: left;
@@ -917,6 +952,11 @@ dialog .stats button {
 
   #drawer-handle::before {
     inset: -20px 0 0;
+  }
+
+  /* A full sheet's handle rests on the drawer's: the wider grab area would take its touches. */
+  #main:has(#sheet[data-rest='full']) ~ #bar #drawer-handle::before {
+    inset: 0;
   }
 
   #drawer-handle .grip {

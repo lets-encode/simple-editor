@@ -52,9 +52,8 @@ export const DEFAULTS = {
   paneAccidPx: 30,
   // The control bar: 'drawer' is the prototype of 2026-11-10 (src/drawer.js), 'classic' the bar before it.
   barLayout: 'drawer',
-  // The drawer's resting size (closed, pad, full) and what the strip's last button is (view, delete).
+  // The drawer's resting size: closed, pad or full.
   barRest: 'pad',
-  barStripLast: 'view',
 };
 
 const KEY = 'simple-editor-spike-settings';

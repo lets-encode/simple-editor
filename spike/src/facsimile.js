@@ -39,6 +39,8 @@ export class Facsimile {
     this.available = false;
     /** @type {'closed'|'strip'|'full'} */
     this.rest = 'closed';
+    /** How much of the score's area the control bar lies over, at the bottom (src/drawer.js). */
+    this.covered = 0;
     this.linked = true;
     this.t = { s: 0.2, x: 0, y: 0 };
     /** @type {{frame: Box, like: number|null, key: string} | null} what the view frames, and the like-for-like scale */
@@ -76,7 +78,18 @@ export class Facsimile {
 
   heights() {
     const h = this.main.clientHeight;
-    return { closed: HANDLE_PX, strip: Math.round((h * this.settings.stripPct) / 100), full: h };
+    // Full stops where the control bar begins, so the handle is never under it.
+    const full = Math.max(h - this.covered, HANDLE_PX);
+    return { closed: HANDLE_PX, strip: Math.min(Math.round((h * this.settings.stripPct) / 100), full), full };
+  }
+
+  /** The control bar lies over `px` at the bottom of the score's area: a sheet that reaches further is pushed back up. */
+  setCovered(px, animate = false) {
+    if (px === this.covered) return;
+    this.covered = px;
+    if (!this.available) return;
+    const full = this.heights().full;
+    if (this.rest === 'full' || this.height > full) this.setHeight(this.rest === 'full' ? full : Math.min(this.height, full), animate);
   }
 
   setHeight(px, animate) {

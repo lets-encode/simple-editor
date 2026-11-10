@@ -1186,6 +1186,7 @@ async function main() {
     note: noteCommand,
     pressed: (key) => key === 'insert' && entry.open,
     hud,
+    covers: (px, animate) => fac.setCovered(px, animate),
     prefs: settings,
     savePrefs: () => saveSettings(settings),
   };
@@ -1196,7 +1197,7 @@ async function main() {
   };
   makeBar();
   bindSettingsDialog(settingsDialog, settings, loadFixture, (name) => {
-    if (name === 'barLayout' || name === 'barStripLast') makeBar();
+    if (name === 'barLayout') makeBar();
     if (name === 'paneSide') setPaneSide();
     if (name === 'paneStepPx') pane.draw();
   });
