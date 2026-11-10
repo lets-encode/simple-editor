@@ -50,6 +50,11 @@ export const DEFAULTS = {
   paneStepPx: 16,
   paneGhostDelayMs: 70,
   paneAccidPx: 30,
+  // The control bar: 'drawer' is the prototype of 2026-11-10 (src/drawer.js), 'classic' the bar before it.
+  barLayout: 'drawer',
+  // The drawer's resting size (closed, pad, full) and what the strip's last button is (view, delete).
+  barRest: 'pad',
+  barStripLast: 'view',
 };
 
 const KEY = 'simple-editor-spike-settings';
@@ -62,7 +67,7 @@ export function loadSettings() {
   }
 }
 
-function save(s) {
+export function saveSettings(s) {
   try {
     localStorage.setItem(KEY, JSON.stringify(s));
   } catch {
@@ -121,7 +126,7 @@ export function bindSettingsDialog(dialog, s, onFixture, onChange = () => {}) {
     if (!(name in s)) return;
     const prev = s[name];
     s[name] = type === 'range' ? Number(value) : type === 'checkbox' ? checked : value;
-    save(s);
+    saveSettings(s);
     sync();
     if (name === 'fixture' && prev !== value) onFixture(value);
     else if (name !== 'fixture') onChange(name);
@@ -130,7 +135,7 @@ export function bindSettingsDialog(dialog, s, onFixture, onChange = () => {}) {
   dialog.querySelector('#settings-reset').addEventListener('click', () => {
     const fixtureBefore = s.fixture;
     Object.assign(s, DEFAULTS, { fixture: fixtureBefore });
-    save(s);
+    saveSettings(s);
     sync();
   });
 

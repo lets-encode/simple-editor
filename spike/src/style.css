@@ -725,3 +725,202 @@ dialog .stats button {
     margin: 2.5px;
   }
 }
+
+/* The drawer bar (src/drawer.js, a prototype): a strip that never moves, and a drawer that slides
+   out of it. The bar's grid track (--bar-flow) is the settled size; the panel inside may be larger
+   and then lies over the score, while it is dragged and at full. */
+#app.drawer {
+  --bar-flow: 80px;
+  grid-template-columns: var(--bar-flow) 1fr;
+}
+
+#app.drawer #bar {
+  position: relative;
+  z-index: 3;
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  overflow: visible;
+}
+
+/* Landscape: the strip is a column at the screen's edge, and the drawer grows to the right. */
+#drawer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: var(--bar-size-now, var(--bar-flow));
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
+  padding: 0 16px 0 env(safe-area-inset-left);
+  background: var(--bar);
+  border-right: 1px solid var(--bar-edge);
+  overflow: hidden;
+}
+
+#drawer.animate {
+  transition: width 180ms ease-out;
+}
+
+#drawer .sec {
+  flex: none;
+  box-sizing: border-box;
+  display: grid;
+  gap: 4px;
+  align-content: start;
+  padding: 6px 0 6px 6px;
+}
+
+#drawer .strip {
+  grid-template-columns: 56px;
+}
+
+#drawer .pad {
+  grid-template-columns: repeat(2, 52px);
+}
+
+#drawer .more {
+  grid-template-columns: repeat(var(--more-cols, 1), 52px);
+}
+
+#drawer .more:empty {
+  display: none;
+}
+
+#drawer button {
+  min-width: 0;
+  min-height: 48px;
+  padding: 2px;
+  font-size: 12px;
+  overflow: hidden;
+}
+
+#drawer .strip button {
+  min-height: 44px;
+}
+
+#drawer button.glyph,
+#drawer .strip button:not(.tab) {
+  font-size: 20px;
+  line-height: 1;
+}
+
+/* A gesture that does nothing in this mode keeps its slot. */
+#drawer button.dead {
+  border-style: dashed;
+  background: transparent;
+}
+
+/* The mode's current kind: the button that stands for hold and tap. */
+#drawer button.kind {
+  border-color: var(--ink);
+  font-weight: 600;
+}
+
+#drawer .view-label {
+  grid-column: span 2;
+  align-self: center;
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+#drawer .pad.view #page-select {
+  grid-column: span 2;
+  justify-self: center;
+  min-height: 44px;
+  font-size: 14px;
+}
+
+/* A thin handle on the drawer's free edge; its pseudo-element widens the grab area over the score. */
+#drawer-handle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Opaque: the rows that are slid away end under it. */
+  background: var(--bar);
+  touch-action: none;
+  cursor: ew-resize;
+}
+
+#drawer-handle::before {
+  content: '';
+  position: absolute;
+  inset: 0 -20px 0 0;
+}
+
+#drawer-handle .grip {
+  width: 3px;
+  height: 28px;
+  border-radius: 2px;
+  background: var(--muted);
+  opacity: 0.6;
+}
+
+@media (orientation: portrait) {
+  #app.drawer {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr var(--bar-flow);
+  }
+
+  /* Portrait: the strip is the bottom row, and the drawer grows upwards. */
+  #drawer {
+    top: auto;
+    right: 0;
+    width: auto;
+    height: var(--bar-size-now, var(--bar-flow));
+    flex-direction: column;
+    padding: 16px 0 env(safe-area-inset-bottom);
+    border-right: 0;
+    border-top: 1px solid var(--bar-edge);
+  }
+
+  #drawer.animate {
+    transition: height 180ms ease-out;
+  }
+
+  #drawer .sec {
+    padding: 0 8px 4px;
+  }
+
+  #drawer .strip {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    padding-bottom: 6px;
+  }
+
+  #drawer .pad,
+  #drawer .more {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  #drawer .view-label {
+    grid-column: span 5;
+    text-align: left;
+    padding-left: 8px;
+  }
+
+  #drawer-handle {
+    left: 0;
+    bottom: auto;
+    width: auto;
+    height: 16px;
+    cursor: ns-resize;
+  }
+
+  #drawer-handle::before {
+    inset: -20px 0 0;
+  }
+
+  #drawer-handle .grip {
+    width: 28px;
+    height: 3px;
+  }
+}

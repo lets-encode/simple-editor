@@ -63,6 +63,20 @@
           <select name="fixture"></select>
         </label>
         <label>
+          Control bar
+          <select name="barLayout">
+            <option value="drawer">drawer (prototype): a strip, and a pad that slides out</option>
+            <option value="classic">classic: the modes, then a level per mode</option>
+          </select>
+        </label>
+        <label>
+          Drawer: the strip's last button
+          <select name="barStripLast">
+            <option value="view">⋯ page, size and settings (Delete on the pad)</option>
+            <option value="delete">Delete (⋯ on the pad)</option>
+          </select>
+        </label>
+        <label>
           Flick window (lift sooner for one step) <output></output> ms
           <input type="range" name="swipeWindowMs" min="100" max="500" step="10" />
         </label>

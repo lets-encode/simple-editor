@@ -4,7 +4,8 @@ import { Score, SCALES, slotRect } from './score.js';
 import { horizontal, vertical, expansion, departure, enterLane, enterSystem } from './nav.js';
 import { attachGestures } from './gestures.js';
 import { createBar } from './bar.js';
-import { FIXTURES, loadSettings, bindSettingsDialog, loadEdits, saveEdits, discardEdits } from './settings.js';
+import { createDrawerBar } from './drawer.js';
+import { FIXTURES, loadSettings, saveSettings, bindSettingsDialog, loadEdits, saveEdits, discardEdits } from './settings.js';
 import { MeiDoc } from './mei.js';
 import { setDurationSteps, durationCarrier, snapshot, restore } from './edit.js';
 import { Ghosts, harvestGlyphs, baseOf, staffLines } from './ghost.js';
@@ -746,7 +747,7 @@ function cancelEditScrub() {
   showEdits();
 }
 
-const NOTE_COMMAND_STEPS = { longer: ['dur', -1], shorter: ['dur', 1], down: ['pitch', -1], up: ['pitch', 1] };
+const NOTE_COMMAND_STEPS = { longer: ['dur', -1], shorter: ['dur', 1], down: ['pitch', -1], up: ['pitch', 1], octaveDown: ['pitch', -7], octaveUp: ['pitch', 7] };
 
 const ACCID_KEYS = { sharp: 's', flat: 'f', natural: 'n' };
 
@@ -835,6 +836,7 @@ function cycleDots(how) {
 function noteCommand(key) {
   if (key === 'insert') return toggleEntry();
   if (ACCID_KEYS[key]) return accidentalCommand(ACCID_KEYS[key], 'button');
+  if (key === 'dots') return cycleDots('button');
   const [kind, steps] = NOTE_COMMAND_STEPS[key];
   editOnce(kind, steps, 'button');
 }
@@ -1172,7 +1174,7 @@ async function main() {
   setPaneSide();
   // Exposed for inspection from the browser console.
   window.spike = { score, sel, settings, fac, pane, entry, get doc() { return doc; } };
-  bar = createBar(document.getElementById('bar'), {
+  const barActions = {
     page: turnPage,
     zoom,
     settings: () => {
@@ -1183,8 +1185,18 @@ async function main() {
     goto: (p) => turnPage(p - score.page),
     note: noteCommand,
     pressed: (key) => key === 'insert' && entry.open,
-  });
+    hud,
+    prefs: settings,
+    savePrefs: () => saveSettings(settings),
+  };
+  // The drawer is a prototype beside the classic bar; ⚙ switches between them.
+  const makeBar = () => {
+    bar?.destroy?.();
+    bar = (settings.barLayout === 'drawer' ? createDrawerBar : createBar)(document.getElementById('bar'), barActions);
+  };
+  makeBar();
   bindSettingsDialog(settingsDialog, settings, loadFixture, (name) => {
+    if (name === 'barLayout' || name === 'barStripLast') makeBar();
     if (name === 'paneSide') setPaneSide();
     if (name === 'paneStepPx') pane.draw();
   });
